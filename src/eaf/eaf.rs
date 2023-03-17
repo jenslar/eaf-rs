@@ -692,6 +692,9 @@ impl Eaf {
         self.time_order.shift(shift_ms, allow_negative)
     }
 
+    /// NOT YET READY FOR MERGING TWO ARBITRARY EAF-FILES.
+    /// ASSUME MERGE CURRENTLY DOES NOT WORK FOR YOUR PURPOSES.
+    /// 
     /// Merges two ELAN-files if possible. This is done with the assumption that both
     /// files link the same media files and that tiers with identical tier ID:s have the same attributes,
     /// which is important for tier hierarchy, linguistic types etc. This is up to the user
@@ -700,7 +703,7 @@ impl Eaf {
     /// Caveats:
     /// - Linked files and any tier attributes will be inherited from the first file only.
     /// - Time slots without a time value will be discarded.
-    pub fn merge(paths: &[PathBuf; 2]) -> Result<Self, EafError> {
+    fn merge(paths: &[PathBuf; 2]) -> Result<Self, EafError> {
         // let mut eaf1 = AnnotationDocument::deserialize(&paths[0], true)?;
         // let eaf1_a_len = eaf1.a_len();
         // let eaf1_ts_len = eaf1.time_order.len();
