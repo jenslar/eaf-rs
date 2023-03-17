@@ -12,7 +12,7 @@ use eaf_rs::Eaf;
 fn main() -> std::io::Result<()> {
     let path = std::path::Path::new("MYEAF.eaf");
     let eaf = Eaf::deserialize(&path, true)?;
-    println!("{:#?}", eaf);
+    println!("{eaf:#?}");
     Ok(())
 }
 ```
