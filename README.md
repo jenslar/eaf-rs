@@ -31,7 +31,7 @@ fn main() -> std::io::Result<()> {
     println!("{annotations:#?}");
     // Get annotation in main for specified referred annotation ID
     let main_annotation = eaf.main_annotation("a42");
-    println!("{main_annotations:#?}");
+    println!("{main_annotation:#?}");
 
     Ok(())
 }
