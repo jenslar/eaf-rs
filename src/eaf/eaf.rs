@@ -339,6 +339,20 @@ impl Eaf {
         )
     }
 
+    /// Returns `Eaf` that can be serialized into an ETF
+    /// (ELAN Template File).
+    /// 
+    /// Strips annotations from tiers and linked files,
+    /// but leaves attributes, controlled vocabulary etc.
+    pub fn to_etf(&self) -> Self {
+        Self {
+            header: Header::default(),
+            time_order: TimeOrder::default(),
+            tiers: self.tiers.iter().map(|t| t.strip()).collect::<Vec<_>>(),
+            ..self.to_owned()
+        }
+    }
+
     /// Serializes to JSON in either a simplified form (`simple` = `true`)
     /// or the full `AnnotationDocument` structure.
     pub fn to_json(&self, simple: bool) -> serde_json::Result<String> {

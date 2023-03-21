@@ -86,6 +86,15 @@ impl Tier {
         tier
     }
 
+    /// Strip annotations, but leave tier ID and other attributes.
+    /// Mainly for generating ETF-files.
+    pub fn strip(&self) -> Self {
+        Self {
+            annotations: Vec::default(),
+            ..self.to_owned()
+        }
+    }
+
     /// Create new referred tier from values, assumed to be in chronologial order.
     /// Number of values are not equal to the number of annotations in the parent tier,
     /// values will be laid out in order until the last one.

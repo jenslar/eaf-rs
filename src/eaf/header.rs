@@ -46,9 +46,9 @@ impl Default for Header {
         Self {
             media_file: "".to_owned(),
             time_units: "milliseconds".to_owned(),
-            media_descriptor: Vec::new(),
-            linked_file_descriptor: Vec::new(),
-            properties: Vec::new(),
+            media_descriptor: Vec::default(),
+            linked_file_descriptor: Vec::default(),
+            properties: Vec::default(),
         }
     }
 }

@@ -5,19 +5,11 @@ use serde::{Serialize, Deserialize};
 
 use super::EafError;
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Default, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "UPPERCASE")]
 pub struct TimeOrder {
     #[serde(rename = "TIME_SLOT", default)]
     pub time_slots: Vec<TimeSlot>
-}
-
-impl Default for TimeOrder {
-    fn default() -> Self {
-        Self {
-            time_slots: Vec::new()
-        }
-    }
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
