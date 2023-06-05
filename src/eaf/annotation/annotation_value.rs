@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 /// Annotation value.
 #[derive(Debug, Default, Clone, Deserialize, Serialize, PartialEq, Eq, Hash, PartialOrd)]
 #[serde(rename = "ANNOTATION_VALUE")]
-pub struct AnnotationValue(String);
+pub struct AnnotationValue(String); // !!! should perhaps be a type instead?
 
 impl std::fmt::Display for AnnotationValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -24,18 +24,6 @@ impl From<&str> for AnnotationValue {
         AnnotationValue(value.to_owned())
     }
 }
-
-// impl From<String> for AnnotationValue {
-//     fn from(value: String) -> Self {
-//         AnnotationValue(value)
-//     }
-// }
-
-// impl From<&AnnotationValue> for String {
-//     fn from(value: &AnnotationValue) -> String {
-//         value.0.to_owned()
-//     }
-// }
 
 impl AnnotationValue {
     /// Returns an iterator over the characters for the annotation value.

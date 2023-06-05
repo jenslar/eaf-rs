@@ -32,17 +32,20 @@ pub struct AlignableAnnotation {
     #[serde(rename="@TIME_SLOT_REF2")]
     pub time_slot_ref2: String,
     
-    // Child nodes
+    // Annotations (child nodes)
 
     /// Child node annotation value.
     pub annotation_value: AnnotationValue,
-    // pub annotation_value: String
+
+    /// Tier ID (not part of EAF spec).
     #[serde(skip)]
-    pub tier_id: Option<String>, // not part of EAF spec
+    pub tier_id: Option<String>,
+    /// Timeslot start value in milliseconds, for populating/editing time order (not part of EAF spec).
     #[serde(skip)]
-    pub time_value1: Option<i64>, // not part of EAF spec, for populating/editing time order
+    pub time_value1: Option<i64>,
+    /// Timeslot end value in milliseconds, for populating/editing time order (not part of EAF spec).
     #[serde(skip)]
-    pub time_value2: Option<i64>, // not part of EAF spec, for populating/editing time order
+    pub time_value2: Option<i64>,
 }
 
 impl Default for AlignableAnnotation {
@@ -58,6 +61,26 @@ impl Default for AlignableAnnotation {
             tier_id: None,
             time_value1: None,
             time_value2: None
+        }
+    }
+}
+
+impl AlignableAnnotation {
+    /// Add optional time values in millisseconds. Not part of EAF spec.
+    pub fn with_time_val(self,time_value1: i64, time_value2: i64) -> Self {
+        Self {
+            time_value1: Some(time_value1),
+            time_value2: Some(time_value2),
+            ..self
+        }
+    }
+
+    /// Add optional tier ID for the the tier the annotation belongs to.
+    /// Not part of EAF spec.
+    pub fn with_tier_id(self, tier_id: &str) -> Self {
+        Self {
+            tier_id: Some(tier_id.to_owned()),
+            ..self
         }
     }
 }

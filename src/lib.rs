@@ -19,10 +19,11 @@
 //! 
 //! Example:
 //! ```
-//! use eaf_rs::annotation_document::AnnotationDocument;
+//! use eaf_rs::Eaf;
 //! fn main() -> std::io::Result<()> {
 //!     let path = std::path::Path::new("MYEAF.eaf");
-//!     let eaf = AnnotationDocument::deserialize(&path, true)?;
+//!     // Deserialize ELAN-file
+//!     let eaf = Eaf::de(&path, true)?;
 //!     println!("{:#?}", eaf);
 //!     Ok(())
 //! }

@@ -1,22 +1,26 @@
-//! The core data structure for a deserialized EAF file.
+//! The core data structure for a deserialized
+//! [ELAN-file](https://www.mpi.nl/tools/elan/EAF_Annotation_Format_3.0_and_ELAN.pdf).
+//! 
 //! Example:
 //! ```
-//! use eaf_rs::annotation_document::AnnotationDocument;
+//! use eaf_rs::Eaf;
 //! fn main() -> std::io::Result<()> {
 //!     let path = std::path::Path::new("MYEAF.eaf");
-//!     let eaf = AnnotationDocument::deserialize(&path, true)?;
+//!     // Deserialize
+//!     let eaf = Eaf::de(&path, true)?;
 //!     println!("{:#?}", eaf);
 //!     Ok(())
 //! }
 //! ```
 //!
-//! Note that some methods expect `AnnotationDocument::index()` and `AnnotationDocument::derive()`
+//! Note that some methods expect `Eaf::index()` and `Eaf::derive()`
 //! to be called before they are run. This is done automatically for most methods and on deserialization.
-//! `AnnotationDocument::index()` indexes the EAF speeding up many "getter" methods,
-//! whereas and `AnnotationDocument::derive()` derives values such as time values
+//! `Eaf::index()` indexes the EAF speeding up many "getter" methods,
+//! whereas and `Eaf::derive()` derives values such as time values
 //! for annotation boundaries and sets these directly at the annotation level to make them more independent.
 
-use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
+use quick_xml::se::Serializer;
+use rayon::prelude::{IntoParallelRefIterator, ParallelIterator, IndexedParallelIterator, IntoParallelIterator};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use time::format_description;
@@ -24,6 +28,8 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::Write;
 use std::path::{Path, PathBuf};
+
+use crate::TimeSlot;
 
 use super::{
     Annotation,
@@ -116,16 +122,14 @@ pub enum Scope {
 /// De/Serializable. Make sure to validate output, since breaking changes
 /// were introduced in EAF v2.8. E.g. valid EAF v2.7 documents with
 /// controlled vocabularies do not validate against EAF v2.8+
-/// schemas. Currently fails on ELAN Template Files (`.etf`),
-/// since ETF is a simplified form of the EAF standard that
-/// does not expect some elements that are required for an `.eaf` file.
+/// schemas.
 ///
 /// Example:
 /// ```
 /// use eaf_rs::Eaf;
 /// fn main() -> std::io::Result<()> {
 ///     let path = std::path::Path::new("MYEAF.eaf");
-///     let eaf = Eaf::deserialize(&path, true)?;
+///     let eaf = Eaf::de(&path, true)?;
 ///     println!("{:#?}", eaf);
 ///     Ok(())
 /// }
@@ -206,7 +210,7 @@ pub struct Eaf {
     /// e.g. annotation ID to time slot values.
     #[serde(skip)]
     pub index: Index, // should ideally be 'pub(crate): Index'
-    /// Not part of EAF specification. Toggle to check whether `AnnotationDocument`
+    /// Not part of EAF specification. Toggle to check whether `Eaf`
     /// is indexed.
     #[serde(skip)]
     indexed: bool,
@@ -245,7 +249,8 @@ impl AsRef<Eaf> for Eaf {
 }
 
 impl Eaf {
-    /// Deserialize EAF XML-file.
+    /// Deserialize [ELAN-file](https://www.mpi.nl/tools/elan/EAF_Annotation_Format_3.0_and_ELAN.pdf).
+    /// 
     /// If `derive` is set, all annotations will have the following derived and set:
     /// - Explicit time values.
     /// - Tier ID.
@@ -255,7 +260,7 @@ impl Eaf {
     /// parsing will take \~2x the time.
     /// Set to `false` to gain some speed if you are batch processing,
     /// and all you want to do is to e.g. scrub media paths for multiple EAF-files.
-    pub fn deserialize(path: &Path, derive: bool) -> Result<Self, EafError> {
+    pub fn de(path: &Path, derive: bool) -> Result<Self, EafError> {
         // Let Quick XML use serde to deserialize
         let mut eaf: Eaf = quick_xml::de::from_str(&std::fs::read_to_string(path)?)
             .map_err(|e| EafError::QuickXMLDeError(e))?;
@@ -263,14 +268,14 @@ impl Eaf {
         // index file first...
         eaf.index();
 
-        // ...then derive (uses index)
+        // ...then derive (uses Eaf::index)
         if derive {
             // Could return Eaf without deriving if it fails,
             // with the caveat that the serialized file
             // may not work in ELAN.
             // Tested pympi's Eaf.merge(), which merged tiers
             // and generated EAFs that validate against schema,
-            // but do not run in ELAN, since there are
+            // but do not load in ELAN, since there were
             // "ref annotations" referring to non-existing
             // "main annotations".
             eaf.derive()?;
@@ -279,8 +284,8 @@ impl Eaf {
         Ok(eaf)
     }
 
-    /// Serialize `AnnotationDocument` to string.
-    pub fn serialize(&self) -> Result<String, EafError> {
+    /// Serialize `Eaf` to indented string.
+    pub fn se(&self) -> Result<String, EafError> {
         let mut eaf = self.to_owned(); // better to take &mut self as arg...?
         if eaf.author == "" {
             eaf.author = unspecified() // quick-xml ignores attr with empty string ""
@@ -294,49 +299,18 @@ impl Eaf {
         // Should already be set for deserialized EAF:s.
         eaf.set_ns();
 
+        let mut eaf_str = String::new();
+        let mut ser = Serializer::new(&mut eaf_str);
+        // Set indent to 4 spaces
+        ser.indent(' ', 4);
+
+        self.serialize(ser).map_err(|e| EafError::QuickXMLDeError(e))?;
+
         Ok([
-                r#"<?xml version="1.0" encoding="UTF-8"?>"#, // no xml decl added by quick-xml
-                &quick_xml::se::to_string(&eaf).map_err(|e| EafError::QuickXMLDeError(e))?,
-            ]
-            .join("\n")
-            // Ugly, manual "pretty print" below since quick-xml does not yet have this feature,
-            // but it's coming: https://github.com/tafia/quick-xml/pull/490 (see #361)
-            .replace(
-                "<ANNOTATION_VALUE></ANNOTATION_VALUE>",
-                "\n\t\t\t\t<ANNOTATION_VALUE/>",
-            )
-            .replace("><", ">\n<") // add line breaks
-            .replace("<ANNOTATION_VALUE>", "\t\t\t\t<ANNOTATION_VALUE>")
-            .replace("<ANNOTATION_VALUE/>", "\t\t\t\t<ANNOTATION_VALUE/>")
-            .replace("<LICENSE", "\t<LICENSE")
-            .replace("</LICENSE", "\t</LICENSE")
-            .replace("<HEADER", "\t<HEADER")
-            .replace("</HEADER", "\t</HEADER")
-            .replace("<MEDIA_DESCRIPTOR", "\t\t<MEDIA_DESCRIPTOR")
-            .replace("<PROPERTY", "\t\t<PROPERTY")
-            .replace("<TIME_ORDER", "\t<TIME_ORDER")
-            .replace("</TIME_ORDER", "\t</TIME_ORDER")
-            .replace("<TIME_SLOT", "\t\t<TIME_SLOT")
-            .replace("<TIER", "\t<TIER")
-            .replace("</TIER", "\t</TIER")
-            .replace("<ANNOTATION>", "\t\t<ANNOTATION>")
-            .replace("</ANNOTATION>", "\t\t</ANNOTATION>")
-            .replace("<ALIGNABLE_ANNOTATION", "\t\t\t<ALIGNABLE_ANNOTATION")
-            .replace("</ALIGNABLE_ANNOTATION", "\t\t\t</ALIGNABLE_ANNOTATION")
-            .replace("<REF_ANNOTATION", "\t\t\t<REF_ANNOTATION")
-            .replace("</REF_ANNOTATION", "\t\t\t</REF_ANNOTATION")
-            .replace("<LINGUISTIC_TYPE", "\t<LINGUISTIC_TYPE")
-            .replace("<CONSTRAINT", "\t<CONSTRAINT")
-            .replace("<LANGUAGE", "\t<LANGUAGE")
-            .replace("<LOCALE", "\t<LOCALE")
-            .replace("<LEXICON_REF", "\t<LEXICON_REF")
-            .replace("<CONTROLLED_VOCABULARY", "\t<CONTROLLED_VOCABULARY")
-            .replace("</CONTROLLED_VOCABULARY", "\t</CONTROLLED_VOCABULARY")
-            .replace("<CV_ENTRY", "\t\t<CV_ENTRY")
-            .replace("<CV_ENTRY_ML", "\t\t<CV_ENTRY_ML")
-            .replace("<CVE_VALUE", "\t\t<CVE_VALUE")
-            .replace("<DESCRIPTION", "\t\t<DESCRIPTION")
-        )
+            // Add XML declaration, since not added by quick-xml
+            r#"<?xml version="1.0" encoding="UTF-8"?>"#,
+            eaf_str.as_str()
+        ].join("\n"))
     }
 
     /// Returns `Eaf` that can be serialized into an ETF
@@ -354,7 +328,7 @@ impl Eaf {
     }
 
     /// Serializes to JSON in either a simplified form (`simple` = `true`)
-    /// or the full `AnnotationDocument` structure.
+    /// or the full `Eaf` structure.
     pub fn to_json(&self, simple: bool) -> serde_json::Result<String> {
         match simple {
             true => serde_json::to_string(&JsonEaf::from(self)),
@@ -393,7 +367,7 @@ impl Eaf {
             }
         }
 
-        let content = self.serialize()?;
+        let content = self.se()?;
 
         let write = if path.exists() {
             acknowledge(&format!("{} already exists. Overwrite?", path.display()))?
@@ -409,34 +383,73 @@ impl Eaf {
         Ok(write)
     }
 
-    /// Generate new AnnotationDocument with a single tier created from
+    /// Generate new `Eaf` with a single tier created from
     /// a list of tuples in the form `(annotation_value, start_time_ms, end_time_ms)`.
     pub fn from_values(
         values: &[(String, i64, i64)],
         tier_id: Option<&str>,
     ) -> Result<Self, EafError> {
         let mut eaf = Eaf::default();
-        let tier_id_str = tier_id.unwrap_or("default");
-        eaf.change_tier_id(tier_id_str, "default")?;
-        eaf.index(); // adds changed tier_id_str to index
+        // let tier_id_str = tier_id.unwrap_or("default");
+        // eaf.change_tier_id(tier_id_str, "default")?; // ???
+        // eaf.index(); // adds changed tier_id_str to index
 
-        let mut count = 1;
+        // let mut count = 1;
 
-        for (i, (value, ts_val1, ts_val2)) in values.iter().enumerate() {
-            let mut a = Annotation::alignable(
-                value,
-                &format!("a{}", i + 1),
-                &format!("ts{}", count + i),
-                &format!("ts{}", count + i + 1),
-            );
+        // !!! 230406 changed to par_iter ? collect, then setting tier, timeorder directly
 
-            count += 1;
+        let (annotations, timeslot_pairs): (Vec<_>, Vec<_>) = values.par_iter().enumerate()
+        // let (annotations, timeslot_pairs): (Vec<_>, Vec<_>) = values.iter().enumerate()
+            .map(|(i, (value, ts_val1, ts_val2))| {
+                // println!("{} {} {}",value, ts_val1, ts_val2);
+                let ts_ref1 = &format!("ts{}", (i + 1) * 2 - 1); // 2x annotation_id - 1
+                let ts_ref2 = &format!("ts{}", (i + 1) * 2);     // 2x annotation_id
+                let a = Annotation::alignable(
+                    value,
+                    &format!("a{}", i + 1),          // i=0: 1, i=1: 2, i=2: 3, i=3: 4
+                    ts_ref1,                         // i=0: 1, i=1: 3, i=2: 5, i=3: 7
+                    ts_ref2,                         // i=0: 2, i=1: 4, i=2: 6, i=3: 8
+                )
+                .with_ts_val(*ts_val1, *ts_val2);
 
-            // Set AlignableAnnotation.
-            a.set_ts_val(Some(*ts_val1), Some(*ts_val2));
+                let ts1 = TimeSlot::new(ts_ref1, Some(*ts_val1));
+                let ts2 = TimeSlot::new(ts_ref2, Some(*ts_val2));
 
-            eaf.add_annotation(&a, tier_id_str, false)?;
-        }
+                (a, vec![ts1, ts2])
+            })
+            .unzip();
+
+        let timeslots: Vec<TimeSlot> = timeslot_pairs.into_par_iter()
+            .flatten()
+            .collect();
+        let timeorder = TimeOrder::new(&timeslots); // !!! should not borrow
+
+        let tier = Tier::new(
+            tier_id.unwrap_or("default"),
+            Some(&annotations), // !!! should not borrow
+            Some("default-lt"),
+            None
+        );
+
+        eaf.time_order = timeorder;
+        eaf.tiers = vec![tier];
+
+        // !!! old, slower (?) behaviour below
+        // for (i, (value, ts_val1, ts_val2)) in values.iter().enumerate() {
+        //     let mut a = Annotation::alignable(
+        //         value,
+        //         &format!("a{}", i + 1),
+        //         &format!("ts{}", count + i),
+        //         &format!("ts{}", count + i + 1),
+        //     );
+
+        //     count += 1;
+
+        //     // Set AlignableAnnotation.
+        //     a.set_ts_val(Some(*ts_val1), Some(*ts_val2));
+
+        //     eaf.add_annotation(&a, tier_id_str, false)?;
+        // }
 
         eaf.index();
         eaf.derive()?;
@@ -501,8 +514,8 @@ impl Eaf {
     /// - `id2ts`: Time slot ID to time slot value
     /// - `ts2id`: Time slot value to Time slot ID
     /// - `a2ts`: Annotation ID to time slot id/ref tuple, `(time_slot_ref1, time_slot_ref2)`.
-    /// - `a2idx`: Annotation ID to `(idx1, idx2)` in `AnnotationDocument.tiers[idx1].annotations[idx2]`
-    /// - `t2idx`: Tier ID to `idx` in `AnnotationDocument.tiers[idx]`
+    /// - `a2idx`: Annotation ID to `(idx1, idx2)` in `Eaf.tiers[idx1].annotations[idx2]`
+    /// - `t2idx`: Tier ID to `idx` in `Eaf.tiers[idx]`
     ///
     /// Speeds up many "getter" methods, such as finding cross referenced annotations,
     /// time values for referred annotations etc. Done automatically on deserialization.
@@ -718,13 +731,13 @@ impl Eaf {
     /// - Linked files and any tier attributes will be inherited from the first file only.
     /// - Time slots without a time value will be discarded.
     fn merge(paths: &[PathBuf; 2]) -> Result<Self, EafError> {
-        // let mut eaf1 = AnnotationDocument::deserialize(&paths[0], true)?;
+        // let mut eaf1 = Eaf::de(&paths[0], true)?;
         // let eaf1_a_len = eaf1.a_len();
         // let eaf1_ts_len = eaf1.time_order.len();
 
         // // remap eaf2 annotation id:s + time slot id:s to start after eaf1
         // // at this point there may be duplicate annotations and time slots
-        // let mut eaf2 = AnnotationDocument::deserialize(&paths[1], true)?;
+        // let mut eaf2 = Eaf::de(&paths[1], true)?;
         // eaf2.remap(Some(eaf1_a_len+1), Some(eaf1_ts_len+1))?;
 
         // eaf1.time_order.join(&eaf2.time_order);
@@ -739,10 +752,10 @@ impl Eaf {
         //     }
         // }
 
-        let mut eaf1 = Eaf::deserialize(&paths[0], true)?;
+        let mut eaf1 = Eaf::de(&paths[0], true)?;
         let eaf1_a_len = eaf1.a_len();
         let eaf1_ts_len = eaf1.time_order.len();
-        let mut eaf2 = Eaf::deserialize(&paths[1], true)?;
+        let mut eaf2 = Eaf::de(&paths[1], true)?;
         eaf2.remap(Some(eaf1_a_len + 1), Some(eaf1_ts_len + 1))?;
 
         // Check for matching tier ID:s: merge if match, add as new tier otherwise
@@ -1079,7 +1092,7 @@ impl Eaf {
         Ok(())
     }
 
-    /// Creates a new `AnnotationDocument` struct, filtered
+    /// Creates a new `Eaf` struct, filtered
     /// according to `start`, `end` boundaries in milliseconds.
     /// All annotations within that time span will be intact.
     ///
@@ -1396,7 +1409,7 @@ impl Eaf {
         }
     }
 
-    /// Get mutable tier.
+    /// Returns mutable tier.
     pub fn get_tier_mut(&mut self, id: &str) -> Option<&mut Tier> {
         if self.indexed {
             let t_idx = self.index.t2idx.get(id)?;
@@ -1407,15 +1420,34 @@ impl Eaf {
         }
     }
 
-    /// Change tier ID for existing tier.
+    /// Change tier ID for existing tier,
+    /// and ref tier ID for tiers referring to this tier ID.
     pub fn change_tier_id(&mut self, from: &str, to: &str) -> Result<(), EafError> {
-        self.tiers.iter_mut()
-            .find(|t| t.tier_id == to)
-            .map(|t| t.tier_id = from.to_owned())
-            .ok_or(EafError::InvalidTierId(to.to_owned()))
+        // self.tiers.iter_mut()
+        // .find(|t| t.tier_id == from)
+        // .map(|t| t.tier_id = to.to_owned())
+        // .ok_or(EafError::InvalidTierId(to.to_owned()))?;
+        // 2. change ref_tier for referred tiers
+        for tier in self.tiers.iter_mut() {
+            match tier.is_ref() {
+                // 1. change ref_tier for referred tiers
+                true => {
+                    if tier.parent_ref.as_deref() == Some(from) {
+                        tier.parent_ref = Some(to.to_owned())
+                    }
+                },
+                // 1. change name of tier
+                false => {
+                    if &tier.tier_id == from {
+                        tier.tier_id = to.to_owned()
+                    }
+                }
+            }
+        }
+        Ok(())
     }
 
-    /// Checks if specified ID exists as either tier ID and/or annotation ID.
+    /// Checks if specified ID exists as either tier ID or annotation ID.
     /// Returns `(bool, bool)` for `(tier exists, annotation exists)`.
     pub fn exists(&self, id: &str) -> (bool, bool) {
         (
