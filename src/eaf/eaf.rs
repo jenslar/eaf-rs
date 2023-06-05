@@ -258,8 +258,6 @@ impl Eaf {
     ///
     /// While `derive` is convenient if working on a single file,
     /// parsing will take \~2x the time.
-    /// Set to `false` to gain some speed if you are batch processing,
-    /// and all you want to do is to e.g. scrub media paths for multiple EAF-files.
     pub fn de(path: &Path, derive: bool) -> Result<Self, EafError> {
         // Let Quick XML use serde to deserialize
         let mut eaf: Eaf = quick_xml::de::from_str(&std::fs::read_to_string(path)?)
