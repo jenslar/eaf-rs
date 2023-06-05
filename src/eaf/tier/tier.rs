@@ -4,12 +4,9 @@ use std::collections::{HashMap, HashSet};
 
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use rayon::prelude::{IntoParallelRefIterator, ParallelIterator, IndexedParallelIterator};
+use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 
-use super::{
-    Annotation,
-    EafError
-};
+use crate::{Annotation, EafError};
 
 /// EAF tier.
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -84,6 +81,15 @@ impl Tier {
         }
 
         tier
+    }
+
+    /// Strip annotations, but leave tier ID and other attributes.
+    /// Mainly for generating ETF-files.
+    pub fn strip(&self) -> Self {
+        Self {
+            annotations: Vec::default(),
+            ..self.to_owned()
+        }
     }
 
     /// Create new referred tier from values, assumed to be in chronologial order.
@@ -371,7 +377,7 @@ impl Tier {
     /// Otherwise, the first annotation in chronological order
     /// will be prioritised. The second annotation's start time stamp.
     /// TODO currently does not remap ID values. Should be optional if implemented.
-    pub fn merge(&mut self, tier: &Tier, join: bool) -> Result<(), EafError> {
+    pub fn merge(&mut self, tier: &Tier, _join: bool) -> Result<(), EafError> {
         // Return error if tiers are not the same type
         if self.is_ref() != tier.is_ref() {
             return Err(EafError::IncompatibleTiers((

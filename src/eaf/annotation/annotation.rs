@@ -1,12 +1,15 @@
+//! ELAN annotations can be either an alignable annotation (if in a main tier),
+//! or a referred annotation (if in a referred tier).
+//! Aligned annotations contain references to time slots (the annotation's time span),
+//! whereas referred annotations contain a reference to an annotation in the parent tier.
+
 use std::collections::HashMap;
 use regex::Regex;
 use serde::{Serialize, Deserialize};
 
 use super::{AnnotationType, RefAnnotation, AlignableAnnotation, AnnotationValue};
 
-/// ELAN annotations can be either an alignable annotation (in a main tier).
-/// They contain references to time slot ID:s, or a "reference annotation" (if in a referred tier),
-/// which instead of time slot ID:s refers to an annotation ID in the parent tier.
+/// ELAN annotation. Aligned or referred.
 #[derive(Debug, Default, Clone, Deserialize, Serialize, PartialEq, Eq, Hash, PartialOrd)]
 #[serde(rename = "ANNOTATION")]
 pub struct Annotation {
@@ -382,6 +385,38 @@ impl Annotation {
                 a.time_value1 = time_value1;
                 a.time_value2 = time_value2;
             },
+        }
+    }
+
+    pub fn with_tier_id(self, tier_id: &str) -> Self {
+        Self {
+            annotation_type: {
+                match self.annotation_type {
+                    AnnotationType::AlignableAnnotation(a) => {
+                       AnnotationType::AlignableAnnotation(a.with_tier_id(tier_id))
+                    },
+                    AnnotationType::RefAnnotation(a) => {
+                       AnnotationType::RefAnnotation(a.with_tier_id(tier_id))
+                    }
+                }
+            },
+            ..self
+        }
+    }
+
+    pub fn with_ts_val(self, time_value1: i64, time_value2: i64) -> Self {
+        Self {
+            annotation_type: {
+                match self.annotation_type {
+                    AnnotationType::AlignableAnnotation(a) => {
+                       AnnotationType::AlignableAnnotation(a.with_time_val(time_value1, time_value2))
+                    },
+                    AnnotationType::RefAnnotation(a) => {
+                       AnnotationType::RefAnnotation(a.with_time_val(time_value1, time_value2))
+                    }
+                }
+            },
+            ..self
         }
     }
 
