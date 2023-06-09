@@ -23,7 +23,7 @@ fn main() -> std::io::Result<()> {
     let path = std::path::Path::new("MYEAF.eaf");
 
     // Read EAF, index relations between annotations, tiers and derive time slot values etc...
-    let eaf = Eaf::deserialize(&path, true)?;
+    let eaf = Eaf::de(&path, true)?;
     println!("{eaf:#?}");
 
     // Get all annotations for specified tier ID
