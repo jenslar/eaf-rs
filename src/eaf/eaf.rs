@@ -302,7 +302,7 @@ impl Eaf {
         // Set indent to 4 spaces
         ser.indent(' ', 4);
 
-        self.serialize(ser).map_err(|e| EafError::QuickXMLDeError(e))?;
+        eaf.serialize(ser).map_err(|e| EafError::QuickXMLDeError(e))?;
 
         Ok([
             // Add XML declaration, since not added by quick-xml
