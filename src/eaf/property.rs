@@ -1,16 +1,18 @@
-//! EAF property.
+//! Property.
+//! 
+//! Optional key, value store specifying position at exit,
+//! but can be used for custom user data,
+//! as long as a unique "name" attribute is used.
 
 use serde::{Serialize, Deserialize};
 
-/// Optional key, value store in EAF header.
-/// Can be used to store custom information (be sure to pick a
-/// unique attribute name).
+/// Optional key, value store specifying position at exit,
+/// but can be used for custom user data,
+/// as long as a unique "name" attribute is used.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "UPPERCASE")]
 pub struct Property {
-    /// Name, value seems optional,
-    /// but attribute should exist...?
-    /// Currently serializes to `Some("")` if `None`.
+    /// Name (must be unique)
     #[serde(rename = "@NAME")]
     pub name: Option<String>,
     /// Text content.

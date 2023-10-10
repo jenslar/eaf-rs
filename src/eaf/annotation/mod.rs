@@ -1,4 +1,4 @@
-//! EAF Annotation.
+//! Annotation.
 //! 
 //! Can be either an 'aligned annotation' (part of a main/top-level tier),
 //! or a 'referred annotation' (part of a referred tier).

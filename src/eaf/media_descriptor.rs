@@ -1,4 +1,10 @@
-//! EAF media descriptor.
+//! Media descriptor.
+//! 
+//! Specifies a linked media file, including path, and mime type,
+//! but also an optional time offset (`time_origin`),
+//! used by ELAN as a starting point to be able to synchronise media files.
+//! 
+//! Part of the header.
 
 use std::{path::{Path, PathBuf}, ffi::OsStr};
 use serde::{Serialize, Deserialize};
@@ -7,7 +13,13 @@ use crate::ffmpeg;
 
 use super::{eaf::path_to_string, EafError};
 
-/// EAF media descriptor. Part of EAF header, contains paths to linked media files.
+/// Media descriptor.
+/// 
+/// Specifies a linked media file, including path, and mime type,
+/// but also an optional time offset (`time_origin`),
+/// used by ELAN as a starting point to be able to synchronise media files.
+/// 
+/// Part of the header.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename = "MEDIA_DESCRIPTOR")]
 pub struct MediaDescriptor {
@@ -24,7 +36,6 @@ pub struct MediaDescriptor {
     /// Time offset in milliseconds used when synchronising multiple media files.
     #[serde(rename="@TIME_ORIGIN")]
     #[serde(skip_serializing_if = "Option::is_none")]
-    // pub time_origin: Option<String>,
     pub time_origin: Option<u64>,
     /// Path to e.g. the video which a wav-file was extracted from.
     #[serde(rename="@EXTRACTED_FROM")]
@@ -45,7 +56,7 @@ impl Default for MediaDescriptor {
 }
 
 impl MediaDescriptor {
-    /// Create new `MediaDescriptor`. Relative media path is set to
+    /// Createa a new media descriptor. Relative media path is set to
     /// filename only, e.g. `./VIDEO.MP4`.
     pub fn new(path: &Path, extracted_from: Option<&str>) -> Self {
         let mut mdsc = MediaDescriptor::default();
@@ -68,7 +79,7 @@ impl MediaDescriptor {
         }
     }
 
-    /// Set absolute media path, and optional relative path.
+    /// Sets absolute media path, and optional relative path.
     pub fn set_path(&mut self, path: &Path, rel_path: Option<&Path>) {
         self.media_url = path_to_string(path, Some("file:///"), false);
         if let Some(rel) = rel_path {
@@ -77,7 +88,7 @@ impl MediaDescriptor {
         self.mime_type = MimeType::from_path(path).to_string();
     }
 
-    /// Set relative media path.
+    /// Sets relative media path.
     pub fn set_rel_path(&mut self, rel_path: &Path, filename_only: bool) {
         self.relative_media_url = Some(path_to_string(rel_path, Some("./"), filename_only));
         self.mime_type = MimeType::from_path(rel_path).to_string();

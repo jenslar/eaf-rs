@@ -1,4 +1,4 @@
-//! Various errors for parsing, processing and building EAF-files.
+//! Various errors that may arise when parsing, processing, and generating EAF-files.
 
 use std::fmt;
 
@@ -35,8 +35,10 @@ pub enum EafError {
     InvalidAnnotationId(String),
     /// Invalid time slot ID.
     InvalidTimeSlotId(String),
-    /// Missing time slot reference for annotation. 
+    /// Missing specific time slot reference for annotation. 
     MissingTimeslotRef(String),
+    /// Missing one or more time slot reference/s. 
+    MissingTimeslotRefs,
     /// Missing time slot value for annotation ID (not part of EAF specification).
     MissingTimeslotVal(String),
     /// Error when filtering media, time slots etc on time.
@@ -94,6 +96,7 @@ impl fmt::Display for EafError {
             EafError::InvalidAnnotationId(annotation_id) => write!(f, "No such annotation '{}'", annotation_id),
             EafError::InvalidTimeSlotId(time_slot_id) => write!(f, "No such time slot '{}'", time_slot_id),
             EafError::MissingTimeslotRef(annotation_id) => write!(f, "No time slot reference for annotation/s with ID {}.", annotation_id),
+            EafError::MissingTimeslotRefs => write!(f, "Missing one or more time slot references."),
             EafError::MissingTimeslotVal(annotation_val) => write!(f, "No time slot value for annotation/s with ID {}.", annotation_val),
             EafError::InvalidTimeSpan((start, end)) => write!(f, "Invalid time span {}ms-{}ms", start, end),
             EafError::MissingTierID(annotation_id) => write!(f, "Tier ID not set for annotation with ID '{}'", annotation_id),

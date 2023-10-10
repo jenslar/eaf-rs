@@ -1,20 +1,27 @@
+//! Linked file descriptor.
+//! 
+//! Specifies a media file to annotate or an external file, such as a time series CSV-file.
+//! Part of the header.
+
 use serde::{Deserialize, Serialize};
 
-/// EAF lnked file descriptor. Part of EAF header.
+/// Linked file descriptor.
+/// Specifies a media file to annotate or an external file, such as a time series CSV-file.
+/// Part of the header.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename = "LINKED_FILE_DESCRIPTOR")]
 pub struct LinkedFileDescriptor {
     #[serde(rename="@LINK_URL")]
-    link_url: String,
+    pub link_url: String,
     #[serde(rename="@RELATIVE_LINK_URL")]
     #[serde(skip_serializing_if = "Option::is_none")]
-    relative_link_url: Option<String>,
+    pub relative_link_url: Option<String>,
     #[serde(rename="@MIME_TYPE")]
-    mime_type: String,
+    pub mime_type: String,
     #[serde(rename="@TIME_ORIGIN")]
     #[serde(skip_serializing_if = "Option::is_none")]
-    time_origin: Option<String>,
+    pub time_origin: Option<String>,
     #[serde(rename="@ASSOCIATED_WITH")]
     #[serde(skip_serializing_if = "Option::is_none")]
-    associated_with: Option<String>,
+    pub associated_with: Option<String>,
 }

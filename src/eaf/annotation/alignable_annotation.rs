@@ -1,3 +1,7 @@
+//! Alignable annotation.
+//! 
+//! Part of a main tier, with explicit time slot references.
+
 use serde::{Deserialize, Serialize};
 
 use super::AnnotationValue;

@@ -120,6 +120,7 @@ impl AnnotationBuilder {
         }
     }
 
+    /// Set language reference.
     pub fn lang_ref(self, lang_ref: &str) -> Self {
         Self {
             lang_ref: Some(lang_ref.to_owned()),
@@ -175,6 +176,16 @@ impl AnnotationBuilder {
         }
     }
 
+    /// Aligned annotation only. Time slot references for annotation start/end.
+    pub fn time_slot_refs(self, time_slot_ref1: &str, time_slot_ref2: &str) -> Self {
+        Self {
+            time_slot_ref1: Some(time_slot_ref1.to_owned()),
+            time_slot_ref2: Some(time_slot_ref2.to_owned()),
+            ..self
+        }
+    }
+
+    /// Set tier ID. Aligned/referred annotation.
     pub fn tier_id(self, tier_id: &str) -> Self {
         Self {
             tier_id: Some(tier_id.to_owned()),
@@ -182,13 +193,15 @@ impl AnnotationBuilder {
         }
     }
 
+    /// Set time value for start of annotation.
     pub fn time_value1(self, time_value1: i64) -> Self {
         Self {
             time_value1: Some(time_value1),
             ..self
         }
     }
-
+    
+    /// Set time value for end of annotation.
     pub fn time_value2(self, time_value2: i64) -> Self {
         Self {
             time_value2: Some(time_value2),
@@ -196,6 +209,16 @@ impl AnnotationBuilder {
         }
     }
 
+    /// Set time values for start/end of annotation.
+    pub fn time_values(self, time_value1: i64, time_value2: i64) -> Self {
+        Self {
+            time_value1: Some(time_value1),
+            time_value2: Some(time_value2),
+            ..self
+        }
+    }
+
+    /// Set main annotation. Referred only.
     pub fn main_annotation(self, main_annotation: &str) -> Self {
         Self {
             main_annotation: Some(main_annotation.to_owned()),

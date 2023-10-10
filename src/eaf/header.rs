@@ -1,4 +1,6 @@
-//! EAF header.
+//! Header.
+//! 
+//! Specifies linked media files, and other external files, such as time series CSV-files.
 
 use std::path::{PathBuf, Path};
 
@@ -11,9 +13,7 @@ use super::{
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "UPPERCASE")]
-/// EAF header.
-/// 
-/// Note: ETF not yet implemented. For ELAN template files (ETF) the header contains no media descriptiors or properties.
+/// Header.
 pub struct Header {
     // Attributes
 

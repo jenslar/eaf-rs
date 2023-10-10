@@ -1,3 +1,24 @@
+//! The core data structure for a deserialized
+//! [ELAN-file](https://www.mpi.nl/tools/elan/EAF_Annotation_Format_3.0_and_ELAN.pdf).
+//! 
+//! Example:
+//! ```
+//! use eaf_rs::Eaf;
+//! fn main() -> std::io::Result<()> {
+//!     let path = std::path::Path::new("MYEAF.eaf");
+//!     // Deserialize
+//!     let eaf = Eaf::read(&path)?;
+//!     println!("{:#?}", eaf);
+//!     Ok(())
+//! }
+//! ```
+//!
+//! Note that some methods expect `Eaf::index()` and `Eaf::derive()`
+//! to be called before they are run. This is done automatically for most methods and on deserialization.
+//! `Eaf::index()` indexes the EAF speeding up many "getter" methods,
+//! whereas and `Eaf::derive()` derives values such as time values
+//! for annotation boundaries and sets these directly at the annotation level to make them more independent.
+
 pub mod eaf;
 pub mod errors;
 pub mod license;

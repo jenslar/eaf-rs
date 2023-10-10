@@ -1,3 +1,5 @@
+//! Annotation value.
+
 use std::str::Chars;
 
 use serde::{Deserialize, Serialize};
@@ -5,7 +7,7 @@ use serde::{Deserialize, Serialize};
 /// Annotation value.
 #[derive(Debug, Default, Clone, Deserialize, Serialize, PartialEq, Eq, Hash, PartialOrd)]
 #[serde(rename = "ANNOTATION_VALUE")]
-pub struct AnnotationValue(String); // !!! should perhaps be a type instead?
+pub struct AnnotationValue(String);
 
 impl std::fmt::Display for AnnotationValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -36,6 +38,7 @@ impl AnnotationValue {
         self.0.chars().count()
     }
 
+    /// Returns token/word count (splits annotation on whitespace).
     pub fn len(&self) -> usize {
         self.split(None).len()
     }

@@ -1,3 +1,7 @@
+//! Time slot, part of time order.
+//! 
+//! Maps a time slot ID to a time value (milliseconds).
+
 use serde::{Serialize, Deserialize};
 
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
@@ -11,8 +15,9 @@ pub struct TimeSlot {
 }
 
 impl TimeSlot {
-    /// New time slot from time slot ID and optional millisecond value.
-    /// ID:s must be formatted `"ts1"`, `"ts2"`, ..., `"ts23"`, ...,
+    /// Creates a new time slot from time slot ID and optional millisecond value.
+    /// 
+    /// ELAN's convention is to format the  `"ts1"`, `"ts2"`, ..., `"ts23"`, ...,
     /// `"ts10234"`, etc, with no leading zeros.
     pub fn new(id: &str, val: Option<i64>) -> Self {
         TimeSlot {
@@ -21,8 +26,7 @@ impl TimeSlot {
         }
     }
 
-    /// Returns `True` if the `TimeSlot`
-    /// has a value specified.
+    /// Returns `true` if the a time value specified.
     pub fn has_val(&self) -> bool {
         self.time_value.is_some()
     }

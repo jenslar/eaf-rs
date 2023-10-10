@@ -1,8 +1,8 @@
 # eaf-rs
 
-Rust crate for reading/writing [ELAN](https://archive.mpi.nl/tla/elan).
+Rust crate for reading/writing [ELAN](https://archive.mpi.nl/tla/elan) files. Also supports reading/writing the settings file (`.pfsx`), and the time series configuration file (if time series data is imported into ELAN for `MYFILE.eaf`, a file called `MYFILE_tsconf.xml` will be generated).
 
-To de/serialize XML [`quick-xml`](https://github.com/tafia/quick-xml)'s serde support is used. As quick-xml is currently seeing rapid change, data structures are somewhat nested and in a bit of flux at the moment.
+To de/serialize XML [`quick-xml`](https://github.com/tafia/quick-xml)'s serde support is used. As quick-xml is currently seeing rapid change, data structures may change slightly if necessary.
 
 Some `Eaf`-methods are not yet ready and may be private.
 
@@ -18,12 +18,11 @@ eaf-rs = {git = "https://github.com/jenslar/eaf-rs.git"}
 
 `src/main.rs`:
 ```rust
-use eaf_rs::Eaf;
+use eaf_rs::{Eaf, Pfsx};
 fn main() -> std::io::Result<()> {
-    let path = std::path::Path::new("MYEAF.eaf");
-
-    // Read EAF, index relations between annotations, tiers and derive time slot values etc...
-    let eaf = Eaf::de(&path, true)?;
+    // Parse an ELAN file.
+    let eaf_path = std::path::Path::new("MYEAF.eaf");
+    let eaf = Eaf::read(&eaf_path)?;
     println!("{eaf:#?}");
 
     // Get all annotations for specified tier ID
@@ -33,6 +32,11 @@ fn main() -> std::io::Result<()> {
     // Get annotation in main tier for specified referred annotation ID
     let main_annotation = eaf.main_annotation("a42");
     println!("{main_annotation:#?}");
+
+    // Parse the corresponding settings file
+    let pfsx_path = std::path::Path::new("MYEAF.pfsx");
+    let pfsx = Pfsx::read(&pfsx_path)?;
+    println!("{pfsx:#?}");
 
     Ok(())
 }

@@ -1,3 +1,9 @@
+//! Referred annotation.
+//! 
+//! References an annotation in the parent tier. I.e. does not contain explicit time slot references.
+//! These must be derived via the main annotation. Note that a referred annotation may refer to another
+//! referred annotation.
+
 use serde::{Deserialize, Serialize};
 
 use super::AnnotationValue;

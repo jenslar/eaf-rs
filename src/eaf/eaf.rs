@@ -6,8 +6,8 @@
 //! use eaf_rs::Eaf;
 //! fn main() -> std::io::Result<()> {
 //!     let path = std::path::Path::new("MYEAF.eaf");
-//!     // Deserialize
-//!     let eaf = Eaf::de(&path, true)?;
+//!     // Read ELAN-file
+//!     let eaf = Eaf::read(&path)?;
 //!     println!("{:#?}", eaf);
 //!     Ok(())
 //! }
@@ -20,9 +20,9 @@
 //! for annotation boundaries and sets these directly at the annotation level to make them more independent.
 
 use quick_xml::se::Serializer;
+use serde::{Deserialize, Serialize};
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator, IndexedParallelIterator, IntoParallelIterator};
 use regex::Regex;
-use serde::{Deserialize, Serialize};
 use time::format_description;
 use std::collections::HashMap;
 use std::fs::File;
@@ -46,7 +46,7 @@ use super::{
     LinguisticType,
     Locale,
     Tier,
-    TimeOrder
+    TimeOrder,
 };
 
 /// Returns "unspecified" as `String`
@@ -145,15 +145,18 @@ pub struct Eaf {
     /// quick-xml does not, hence the default.
     #[serde(rename = "@xmlns:xsi", default="xmlns_xsi")]
     xmlns_xsi: String,
+
     /// Schema location.
     /// ELAN (and EAF schema) accepts this out of order,
     /// quick-xml does not, hence the default.
     #[serde(rename = "@xsi:noNamespaceSchemaLocation", default="xsi_no_name_space_schema_location")]
     xsi_nonamespaceschemalocation: String,
+
     /// EAF author attribute.
     /// Required even if only an empty string.
     #[serde(rename="@AUTHOR", default = "unspecified")] // TODO change to Option<String> which from 0.27.1 de (?)/serializes as Some("") if empty
     pub author: String,
+
     /// EAF ISO8601 date time attribute.
     /// Must be in the form: `YYYY-MM-DDTHH:mm:ss.fff+ZZ:ZZ`,
     /// where `fff` is one or more sub-second digits,
@@ -162,9 +165,11 @@ pub struct Eaf {
     /// `+00:00` or `-00:00`.
     #[serde(rename="@DATE", default = "today")]
     pub date: String, // should be time::OffsetDateTime with serde support
+
     /// EAF format attribute, e.g. "3.0".
     #[serde(rename="@FORMAT")]
     pub format: String,
+
     /// EAF version attribute, e.g. "3.0".
     #[serde(rename="@VERSION")]
     pub version: String,
@@ -175,43 +180,55 @@ pub struct Eaf {
     #[serde(rename="LICENSE")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub license: Option<License>,
+
     /// EAF header. Contains media paths.
     pub header: Header,
+
     /// EAF time slots, used to specify annotation boundaries (defaults to milliseconds).
     /// Note that time values are optional.
     pub time_order: TimeOrder,
+
     /// EAF tier. Contains annotations.
     #[serde(rename = "TIER", default)]
     pub tiers: Vec<Tier>,
+
     /// EAF linguistic type. Referred to in tier attributes and specifies
     /// e.g. if the tier is time-alignable.
     #[serde(rename = "LINGUISTIC_TYPE", default)]
     pub linguistic_types: Vec<LinguisticType>,
+
     /// EAF locale.
     #[serde(rename = "LOCALE", default)]
     pub locales: Vec<Locale>,
+
     /// EAF languages.
     #[serde(rename = "LANGUAGE", default)]
     pub languages: Vec<Language>,
+
     /// EAF constraints.
     #[serde(rename = "CONSTRAINT", default)]
     pub constraints: Vec<Constraint>,
+
     /// EAF controlled vocabularies.
     #[serde(rename = "CONTROLLED_VOCABULARY", default)]
     pub controlled_vocabularies: Vec<ControlledVocabulary>,
+
     /// EAF lexicon references.
     #[serde(rename = "LEXICON_REF", default)]
     pub lexicon_refs: Vec<LexiconRef>,
+
     /// Not part of EAF specification. Toggle to check whether annotations have
     /// e.g. derived time slot values set.
     #[serde(skip)]
     derived: bool,
+
     /// Not part of EAF specification. Index with mappings for
     /// e.g. annotation ID to time slot values.
     #[serde(skip)]
     pub index: Index, // should ideally be 'pub(crate): Index'
-    /// Not part of EAF specification. Toggle to check whether `Eaf`
-    /// is indexed.
+
+    /// Not part of EAF specification.
+    /// Toggle to check whether `Eaf` is indexed.
     #[serde(skip)]
     indexed: bool,
 }
@@ -258,7 +275,7 @@ impl Eaf {
     ///
     /// While `derive` is convenient if working on a single file,
     /// parsing will take \~2x the time.
-    pub fn de(path: &Path, derive: bool) -> Result<Self, EafError> {
+    fn de(path: &Path, derive: bool) -> Result<Self, EafError> {
         // Let Quick XML use serde to deserialize
         let mut eaf: Eaf = quick_xml::de::from_str(&std::fs::read_to_string(path)?)
             .map_err(|e| EafError::QuickXMLDeError(e))?;
@@ -283,7 +300,7 @@ impl Eaf {
     }
 
     /// Serialize `Eaf` to indented string.
-    pub fn se(&self) -> Result<String, EafError> {
+    fn se(&self, indent: Option<usize>) -> Result<String, EafError> {
         let mut eaf = self.to_owned(); // better to take &mut self as arg...?
         if eaf.author == "" {
             eaf.author = unspecified() // quick-xml ignores attr with empty string ""
@@ -299,8 +316,10 @@ impl Eaf {
 
         let mut eaf_str = String::new();
         let mut ser = Serializer::new(&mut eaf_str);
-        // Set indent to 4 spaces
-        ser.indent(' ', 4);
+        // Optionally indent serialized XML
+        if let Some(ind) = indent {
+            ser.indent(' ', ind);
+        }
 
         eaf.serialize(ser).map_err(|e| EafError::QuickXMLDeError(e))?;
 
@@ -334,6 +353,30 @@ impl Eaf {
         }
     }
 
+    /// Read an ELAN-file from disk.
+    pub fn read(path: &Path) -> Result<Eaf, EafError> {
+        Self::de(path, true)
+    }
+
+    /// Serialize to an XML-string (single line),
+    /// and optionally specify indentation (multi-line).
+    pub fn to_string(&self, indent: Option<usize>) -> Result<String, EafError> {
+        self.se(indent)
+    }
+
+    /// Serialize and write file to disk.
+    /// Returns `Ok(true)` if file was written to disk,
+    /// otherwise either `Ok(false)` (user aborted write, but no errors),
+    /// or `Err<EafError>` for IO/EAF errors.
+    pub fn write(&self, path: &Path, indent: Option<usize>) -> Result<(), EafError> {
+        let content = self.se(indent)?;
+
+        let mut outfile = File::create(&path)?;
+        outfile.write_all(content.as_bytes())?;
+
+        Ok(())
+    }
+
     /// Set EAF XML namespaces.
     fn set_ns(&mut self) {
         self.xmlns_xsi = "http://www.w3.org/2001/XMLSchema-instance".to_owned();
@@ -341,45 +384,11 @@ impl Eaf {
             format!("http://www.mpi.nl/tools/elan/EAFv{}.xsd", self.version);
     }
 
-    /// Serialize and write file to disk.
-    /// Return `Ok(true)` if file was written to disk,
-    /// otherwise either `Ok(false)` (user aborted write, but no errors),
-    /// or `Err<EafError>` for IO/EAF errors.
-    pub fn write(&self, path: &Path) -> Result<bool, EafError> {
-        /// Acknowledgement, overwriting file.
-        fn acknowledge(message: &str) -> std::io::Result<bool> {
-            loop {
-                print!("(!) {} (y/n): ", message);
-                std::io::stdout().flush()?;
-                let mut overwrite = String::new();
-                let _ = std::io::stdin().read_line(&mut overwrite)?;
-
-                return match overwrite.to_lowercase().trim() {
-                    "y" | "yes" => Ok(true),
-                    "n" | "no" => Ok(false),
-                    _ => {
-                        println!("Enter y/yes or n/no");
-                        continue;
-                    }
-                };
-            }
-        }
-
-        let content = self.se()?;
-
-        let write = if path.exists() {
-            acknowledge(&format!("{} already exists. Overwrite?", path.display()))?
-        } else {
-            true
-        };
-
-        if write {
-            let mut outfile = File::create(&path)?;
-            outfile.write_all(content.as_bytes())?;
-        }
-
-        Ok(write)
-    }
+    // /// Generate new `Eaf` from multiple `Tiers`.
+    // /// These must have annotation timespans set.
+    // pub fn from_tiers(tiers: &[Tier]) {
+    //     let mut eaf = Eaf::default();
+    // }
 
     /// Generate new `Eaf` with a single tier created from
     /// a list of tuples in the form `(annotation_value, start_time_ms, end_time_ms)`.
@@ -451,6 +460,65 @@ impl Eaf {
 
         eaf.index();
         eaf.derive()?;
+
+        Ok(eaf)
+    }
+
+    // pub fn from_csv(csv: &Path) {
+    //     // let mut eaf = Eaf::default();
+    //     // let mut rdr = csv::Reader::from_path(csv).unwrap();
+    //     // for result in rdr.records() {
+    //     //     let record = result.unwrap();
+    //     //     println!("{:?}", record);
+    //     // }
+    // }
+
+    /// Generate new `Eaf` with one or more tiers created from
+    /// a list of tuples in the form `(annotation_value, start_time_ms, end_time_ms, tier_id)`.
+    pub fn from_values_multi(
+        values: &[(String, i64, i64, String)]
+    ) -> Result<Eaf, EafError> {
+        // Generate tiers, values only (annotation value, timestamps in milliseconds)
+        let mut groups: HashMap<String, Vec<(String, i64, i64)>> = HashMap::new();
+        // println!("RAW: {values:?}");
+        values.iter()
+            .for_each(|(a, t1, t2, t_id)| groups
+                .entry(t_id.to_string()).or_insert(Vec::new()).push((a.to_owned(), *t1, *t2)));
+                // .and_modify(|v| v.push((a.to_owned(), *t1, *t2)) ));
+                // .or_insert(Vec::new()));
+        // for (i, (k, g)) in groups.iter().enumerate() {
+        //     println!("{}. {k} {g:?}", i+1, );
+        // }
+        // timeslot and annotation references need re-indexing
+        let mut start_index: usize = 1;
+        let tiers: Vec<Tier> = groups.iter()
+            .map(|(tier_id, values)| {
+                let t = Tier::main_from_values(values, tier_id, Some(start_index));
+                start_index += t.len(); // update start index
+                t
+            })
+            .collect();
+            
+        // just checking... remove this before publishing
+        for t in tiers.iter() {
+            println!("{}", t.tier_id);
+            for a in t.annotations.iter() {
+                println!("  {}\n    ID: {}, TS: {:?} | {:?}", a.value(), a.id(), a.ts_ref(), a.ts_val())
+            }
+        }
+        let mut time_order = Vec::new();
+        for t in tiers.iter() {
+            let mut ts = t.derive_timeslots()
+                .ok_or_else(|| EafError::MissingTimeslotRefs)?;
+            time_order.append(&mut ts)
+        }
+
+        let mut eaf = Self::default();
+        eaf.tiers = tiers;
+        eaf.time_order = TimeOrder::new(&time_order);
+
+        eaf.index();
+        eaf.derive()?; // probably not needed?
 
         Ok(eaf)
     }
@@ -681,10 +749,12 @@ impl Eaf {
     /// Returns the time value if one is specified for the time slot id,
     /// `None` otherwise, or if there are no time slots.
     /// Note that a time slot value is not required according to the EAF specification.
-    ///
-    /// Requires that `Eaf.index()` has been run.
     pub fn ts_val(&self, ts_id: &str) -> Option<i64> {
-        *self.index.ts2tv.get(ts_id)?
+        if self.indexed {
+            *self.index.ts2tv.get(ts_id)?
+        } else {
+            self.time_order.find(ts_id)?.time_value
+        }
     }
 
     /// Returns the smallest time slot value.
@@ -728,7 +798,7 @@ impl Eaf {
     /// Caveats:
     /// - Linked files and any tier attributes will be inherited from the first file only.
     /// - Time slots without a time value will be discarded.
-    fn merge(paths: &[PathBuf; 2]) -> Result<Self, EafError> {
+    fn _merge(paths: &[PathBuf; 2]) -> Result<Self, EafError> {
         // let mut eaf1 = Eaf::de(&paths[0], true)?;
         // let eaf1_a_len = eaf1.a_len();
         // let eaf1_ts_len = eaf1.time_order.len();
@@ -760,7 +830,7 @@ impl Eaf {
         for tier2 in eaf2.tiers.iter() {
             if let Some(tier1) = eaf1.get_tier_mut(&tier2.tier_id) {
                 println!("Merging {} & {}", tier1.tier_id, tier2.tier_id);
-                tier1.merge(tier2, false)?;
+                tier1._merge(tier2, false)?;
             } else {
                 println!("Adding {}", tier2.tier_id);
                 eaf1.add_tier(Some(tier2.to_owned()), None)?;
@@ -902,8 +972,8 @@ impl Eaf {
     }
 
     /// Average annotation length,
-    /// i.e. average number of tokens
-    /// in each annotation
+    /// i.e. average number of tokens (`char`s)
+    /// in each annotation.
     pub fn a_avr_len(&self) -> f64 {
         let avr: Vec<f64> = self.tiers.iter()
             .map(|t| t.avr_annot_len())
@@ -921,7 +991,7 @@ impl Eaf {
 
     /// Average tier length,
     /// i.e. average number of annotations
-    /// in each tier
+    /// in each tier.
     pub fn t_avr_len(&self) -> f64 {
         let t_len = self.t_len();
         match t_len {
@@ -930,14 +1000,14 @@ impl Eaf {
         }
     }
 
-    /// Total number of words/tokens
+    /// Total number of words/tokens.
     pub fn tkn_len(&self) -> usize {
         self.tiers.par_iter()
             .map(|t| t.annotations.iter().map(|a| a.len()).sum::<usize>())
             .sum::<usize>()
     }
 
-    /// Average word/token length
+    /// Average word/token length.
     pub fn tkn_avr_len(&self) -> f64 {
         let avr: Vec<f64> = self.tiers.par_iter()
             .map(|t| t.avr_token_len())
@@ -991,7 +1061,7 @@ impl Eaf {
     /// - reference annotation ID:s are valid for referred annotations.
     /// - reference tier ID:s are valid for referred tiers.
     /// Does not raise errors, only print stats.
-    pub fn validate(&mut self, _verbose: bool) {
+    fn _validate(&mut self, _verbose: bool) {
         // if !self.indexed {self.index()}
 
         // let mut t_orphans: Vec<(String, String)> = Vec::new(); // (tier ID, ref tier ID)
@@ -1006,18 +1076,6 @@ impl Eaf {
         //             }
         //         }
         //     })
-        unimplemented!()
-    }
-
-    /// Remove time slots with duplicate time slot values,
-    /// and remap time slot references in annotations.
-    /// Does not deduplicate time slots with an empty value,
-    /// but their time slot ID may change.
-    pub fn dedup(&mut self) {
-        // NOTE Perhaps not necessary since some eaf (v2.7) generated by ELAN have duplicate time slot values.
-        //      Still, the issue may be that since finding min/max time slot values return first match,
-        //      max value found may precede a lower time slot value. Deduping + remapping should help
-        //      avoid incorrect boundaries in those cases.
         unimplemented!()
     }
 
@@ -1090,8 +1148,43 @@ impl Eaf {
         Ok(())
     }
 
-    /// Creates a new `Eaf` struct, filtered
-    /// according to `start`, `end` boundaries in milliseconds.
+    // /// Test for generating timeslots + references
+    // /// Annotation or timeslot references are assumed not to exist,
+    // /// and will ignored if they do exist,
+    // /// but annotations all must have timeslot values set
+    // pub fn generate_references(&mut self) -> Result<(), EafError> {
+    //     // 1. generate temporary references
+    //     let mut a_index = 1_usize;
+    //     let mut ts_index = 1_usize;
+    //     let mut timeslots: Vec<TimeSlot> = Vec::new();
+    //     for tier in self.tiers.iter_mut() {
+    //         for annot in tier.annotations.iter_mut() {
+    //             annot.set_id(&format!("a{a_index}"));
+    //             a_index += 1;
+    //             let (t1, t2) = annot.ts_val();
+    //             let ts1 = TimeSlot::new(&format!("ts{ts_index}"), t1);
+    //             let ts2 = TimeSlot::new(&format!("ts{ts_index}"), t2);
+    //             annot.set_ts_ref(&ts1.time_slot_id, &ts2.time_slot_id);
+    //             timeslots.push(ts1);
+    //             timeslots.push(ts2);
+    //             ts_index += 2;
+    //         }
+    //     }
+
+    //     self.time_order = TimeOrder::new(&timeslots);
+
+    //     // 2. Index file with new values (derive not necessary?)
+    //     self.index();
+    //     // self.derive()?;
+
+    //     // 3. since we now have a valid index, it's possible to use remap
+    //     self.remap(None, None)?;
+
+    //     Ok(())
+    // }
+
+    /// Extracts a section, that retains content
+    /// within `start`, `end` boundaries in milliseconds.
     /// All annotations within that time span will be intact.
     ///
     /// - `media_dir`: Path to the directory containing linked media files.
@@ -1100,11 +1193,11 @@ impl Eaf {
     /// - `process_media`: If set to `true`, the original media files will be
     /// processed according to the specified time span and linked. Requires ffmpeg.
     /// The original media files will remain untouched on disk.
-    pub fn filter(
+    pub fn extract(
         &self,
         start: i64,
         end: i64,
-        media_dir: Option<&Path>,
+        media_dir: Option<&Path>, // not needed...? just use linked media paths?
         ffmpeg_path: Option<&Path>,
         process_media: bool,
     ) -> Result<Self, EafError> {
@@ -1142,6 +1235,8 @@ impl Eaf {
 
                     // Do the actual filtering based on whether filtered `ts_id` Vec
                     // contains the time slot references/ID:s in question.
+                    // This means that only annotations fully contained within
+                    // the time span will be preserved.
                     if let Some((ts_id1, ts_id2)) = ts_ids {
                         time_order.contains_id(&ts_id1) && time_order.contains_id(&ts_id2)
                     } else {
@@ -1264,6 +1359,36 @@ impl Eaf {
         self.get_annotation_mut(&main_id)
     }
 
+    /// Returns first annotation if time slot values are set.
+    pub fn first_annotation(&self) -> Option<&Annotation> {
+        // TODO could alternatively use smallest time slot value in time order and find that
+        // TODO  reference in annotation ts_ref?
+        
+        let mut first_annots = self.tiers.iter()
+            .filter_map(|t| t.first())
+            .collect::<Vec<_>>();
+        // If time slot values are not set, use max int value
+        // to ensure it's not first. (creates issues if none are set...)
+        first_annots.sort_by_key(|a| a.ts_val().0.unwrap_or(i64::MAX));
+
+        first_annots.first().cloned()
+    }
+
+    /// Returns last annotation if time slot values are set.
+    pub fn last_annotation(&self) -> Option<&Annotation> {
+        // TODO could alternatively use largest time slot value in time order and find that
+        // TODO  reference in annotation ts_ref?
+        
+        let mut last_annots = self.tiers.iter()
+            .filter_map(|t| t.last())
+            .collect::<Vec<_>>();
+        // If time slot values are not set, use max int value
+        // to ensure it's not first. (creates issues if none are set...)
+        last_annots.sort_by_key(|a| a.ts_val().0.unwrap_or(i64::MAX));
+
+        last_annots.last().cloned()
+    }
+
     /// Returns a reference to main tier for specified ref tier ID.
     pub fn main_tier(&self, id: &str) -> Option<&Tier> {
         match &self.index.t2ref.get(id) {
@@ -1291,13 +1416,16 @@ impl Eaf {
     }
 
     /// Returns references to all child tiers if present.
+    pub fn main_tiers(&self) -> Vec<&Tier> {
+        self.tiers.iter()
+            .filter(|t| t.parent_ref == None)
+            .collect()
+    }
+
+    /// Returns references to all child tiers if present.
     pub fn child_tiers(&self, id: &str) -> Vec<&Tier> {
         self.tiers.iter()
-            .filter_map(|t| if t.parent_ref.as_deref() == Some(id) {
-                Some(t)
-            } else {
-                None
-            })
+            .filter(|t| t.parent_ref.as_deref() == Some(id))
             .collect()
     }
 
@@ -1341,7 +1469,7 @@ impl Eaf {
     ) -> Result<(), EafError> {
         match tier {
             Some(t) => {
-                let ext_time_order = TimeOrder::from_hashmap(t.timeslots());
+                let ext_time_order = TimeOrder::from_hashmap(t.lookup_timeslots());
                 self.time_order.join(&ext_time_order); // TODO should remap, dedup if necessary as well
                                                        // println!("{:?}", stereotype);
                 let lt = match stereotype {

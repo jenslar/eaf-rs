@@ -1,10 +1,10 @@
-//! EAF language.
+//! Language.
 
 use serde::{Serialize, Deserialize};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "UPPERCASE")]
-/// EAF Language.
+/// Language.
 pub struct Language {
     #[serde(rename="@LANG_ID")]
     pub lang_id: String,

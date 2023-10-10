@@ -1,12 +1,18 @@
-//! EAF tier.
+//! Tier.
+//! 
+//! ELAN tiers can be either a main tier,
+//! or a referred tier (refers to a parent tier).
+//! 
+//! Note that a referred tier may refer to another
+//! referred tier.
 
 use std::collections::{HashMap, HashSet};
 
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
+use rayon::prelude::{IntoParallelRefIterator, ParallelIterator, IndexedParallelIterator};
 
-use crate::{Annotation, EafError};
+use crate::{Annotation, EafError, TimeSlot};
 
 /// EAF tier.
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -83,7 +89,36 @@ impl Tier {
         tier
     }
 
-    /// Strip annotations, but leave tier ID and other attributes.
+    /// Returns an independent copy with specified tier ID.
+    pub fn with_id(self, tier_id: &str) -> Self {
+        Self{
+            tier_id: tier_id.to_owned(),
+            ..self
+        }
+    }
+
+    /// Returns an independent copy with specified parent tier reference ID.
+    /// I.e. the tier effectively becomes a referred tier.
+    /// 
+    /// Note that annotation type remains unchanged.
+    pub fn with_parent_ref(self, parent_ref: &str) -> Self {
+        Self{
+            parent_ref: Some(parent_ref.to_owned()),
+            ..self
+        }
+    }
+
+    /// Returns an independent copy with specified linguistic type.
+    pub fn with_linguistic_type_ref(self, linguistic_type_ref: &str) -> Self {
+        Self{
+            linguistic_type_ref: linguistic_type_ref.to_owned(),
+            ..self
+        }
+    }
+
+    /// Returns an independent copy with annotations stripped,
+    /// but with tier ID and other attributes intact.
+    /// 
     /// Mainly for generating ETF-files.
     pub fn strip(&self) -> Self {
         Self {
@@ -92,12 +127,46 @@ impl Tier {
         }
     }
 
-    /// Create new referred tier from values, assumed to be in chronologial order.
-    /// Number of values are not equal to the number of annotations in the parent tier,
-    /// values will be laid out in order until the last one.
-    /// If no start index is specified the first annotation ID will succeed the last one
-    /// in the parent tier. If the parent is empty an empty ref tier is created.
-    // pub fn new_ref(values: &[String], tier_id: String, parent: &Tier, linguistic_type_ref: String, start_index: Option<usize>) -> Result<Tier, EafError> {
+    /// Generates a main tier from
+    /// a list of tuples in the form `(annotation_value, start_time_ms, end_time_ms)`,
+    /// assumed to be in chronological order.
+    /// 
+    /// `start_index` deafult to 1 if not set, and will increment by one
+    /// (this is not necessarily true for an existing ELAN file).
+    pub fn main_from_values(
+        values: &[(String, i64, i64)],
+        tier_id: &str,
+        start_index: Option<usize>,
+    ) -> Self {
+        let mut tier = Tier::default().with_id(tier_id);
+        let idx = start_index.unwrap_or(1);
+        
+        tier.annotations = values.par_iter().enumerate()
+            .map(|(i, (val, t1, t2))| {
+                let mut annot = Annotation::alignable(
+                    &val,
+                    &format!("a{}", i+idx),            // 0+1
+                    &format!("ts{}", (i+idx) * 2 - 1), // (0+1)*2-1
+                    &format!("ts{}", (i+idx) * 2),     // (0+1)*2
+                );
+                annot.set_ts_val(Some(*t1), Some(*t2));
+                annot
+            })
+            .collect();
+
+        tier
+    }
+
+    /// Generates a new referred tier from values, assumed to be in chronologial order.
+    /// 
+    /// Number of values are not necessarily equal to the number of annotations
+    /// in the parent tier, this depends on linguistic type ref definition.
+    /// 
+    /// If no start index is specified, the first annotation ID will succeed the last one
+    /// in the parent tier, and increment by one.
+    /// 
+    /// If the parent is empty an empty ref tier is created, since there is nothing
+    /// to refer to.
     pub fn ref_from_values(
         values: &[String],
         tier_id: &str,
@@ -105,10 +174,10 @@ impl Tier {
         linguistic_type_ref: &str,
         start_index: Option<usize>,
     ) -> Result<Tier, EafError> {
-        let mut ref_tier = Tier::default();
-        ref_tier.tier_id = tier_id.to_owned();
-        ref_tier.parent_ref = Some(parent.tier_id.to_owned());
-        ref_tier.linguistic_type_ref = linguistic_type_ref.to_owned();
+        let mut ref_tier = Tier::default()
+            .with_id(tier_id)
+            .with_parent_ref(&parent.tier_id)
+            .with_linguistic_type_ref(linguistic_type_ref);
 
         if !values.is_empty() {
             if values.len() > parent.len() {
@@ -122,7 +191,7 @@ impl Tier {
                 id
             } else {
                 match parent.max_a_id() {
-                    Some(id) => id.replace("a", "").parse()?,
+                    Some(id) => id.trim_start_matches(char::is_alphabetic).parse()?,
                     None => 1,
                 }
             };
@@ -145,24 +214,24 @@ impl Tier {
         Ok(ref_tier)
     }
 
-    /// Returns true if tier is a referred tier.
+    /// Returns `true` if the tier is a referred tier.
     pub fn is_ref(&self) -> bool {
         self.parent_ref.is_some()
     }
 
-    /// Returns true if the tier is tokenized.
+    /// Returns `true` if the tier is tokenized.
     pub fn is_tokenized(&self) -> bool {
         self.iter().any(|a| a.previous().is_some())
     }
 
-    /// Returns number of annotations in tier.
+    /// Returns number of annotations in the tier.
     pub fn len(&self) -> usize {
         self.annotations.len()
     }
 
-    /// Average annotation length,
+    /// Returns average annotation length,
     /// i.e. average number of tokens
-    /// in each annotation
+    /// in each annotation.
     pub fn avr_annot_len(&self) -> f64 {
         let a_len: Vec<usize> = self.annotations.iter()
             .map(|a| a.len())
@@ -173,9 +242,9 @@ impl Tier {
         }
     }
 
-    /// Average word/token length,
+    /// Returns average word/token length,
     /// i.e. average number of characters
-    /// in each word/token
+    /// in each word/token.
     pub fn avr_token_len(&self) -> f64 {
         let t_len: Vec<f64> = self.annotations.iter()
             .map(|a| a.avr_len()) // average token length for annotation
@@ -186,36 +255,41 @@ impl Tier {
         }
     }
 
-    /// Returns a reference to the first annotation, if the tier is not empty.
+    /// Returns a reference to the first annotation,
+    /// if the tier is not empty.
     pub fn first(&self) -> Option<&Annotation> {
         self.annotations.first()
     }
 
-    /// Returns a mutable reference to the first annotation, if the tier is not empty.
+    /// Returns a mutable reference to the first annotation,
+    /// if the tier is not empty.
     pub fn first_mut(&mut self) -> Option<&mut Annotation> {
         self.annotations.first_mut()
     }
 
-    /// Returns a reference to the last annotation, if the tier is not empty.
+    /// Returns a reference to the last annotation,
+    /// if the tier is not empty.
     pub fn last(&self) -> Option<&Annotation> {
         self.annotations.last()
     }
 
-    /// Returns a mutable reference to the last annotation, if the tier is not empty.
+    /// Returns a mutable reference to the last annotation,
+    /// if the tier is not empty.
     pub fn last_mut(&mut self) -> Option<&mut Annotation> {
         self.annotations.last_mut()
     }
 
-    /// Returns a reference to the annotation with specified ID, if it exits.
+    /// Returns a reference to the annotation with specified ID,
+    /// if it exits.
     pub fn find(&self, annotation_id: &str) -> Option<&Annotation> {
         self.annotations.iter().find(|a| a.id() == annotation_id)
     }
 
-    /// Queries annotation values.
+    /// Matches annotation values against a pattern.
+    /// 
     /// Returns tuples in the form
-    /// (Annotation Index, Tier ID, Annotation ID, Annotation value, Ref Annotation ID).
+    /// `(Annotation Index, Tier ID, Annotation ID, Annotation value, Ref Annotation ID)`.
     /// where index corresponds to annotation order in the EAF-file.
-    /// TODO regular expressions
     pub fn query(&self, pattern: &str, ignore_case: bool) -> Vec<(usize, String, String, String, Option<String>)> {
         self.iter()
         // self.annotations.par_iter()
@@ -235,11 +309,11 @@ impl Tier {
             .collect()
     }
     
-    /// Match annotation values against regular expression.
+    /// Match annotation values against a regular expression.
+    /// 
     /// Returns tuples in the form
-    /// (Annotation Index, Tier ID, Annotation ID, Annotation value, Ref Annotation ID).
+    /// `(Annotation Index, Tier ID, Annotation ID, Annotation value, Ref Annotation ID)`.
     /// where index corresponds to annotation order in the EAF-file.
-    /// TODO ignore case
     pub fn query_rx(&self, regex: &Regex) -> Vec<(usize, String, String, String, Option<String>)> {
         self.iter()
         // self.annotations.par_iter()
@@ -263,7 +337,7 @@ impl Tier {
     /// - `tier = true` compiles ngrams across annotation boundaries
     /// - `tier = false` compiles per annotation and combines the result
     /// 
-    /// Returns `HashMap<ngram, count>`.
+    /// Returns `HashMap<ngram_as_string, count>`.
     pub fn ngram(&self, size: usize, regex_remove: Option<&Regex>, tier: bool) -> HashMap<String, usize> {
         let mut ngrams: HashMap<String, usize> = HashMap::new();
 
@@ -273,7 +347,6 @@ impl Tier {
                 .flat_map(|a| a.tokens()
                     .iter()
                     .map(|v| {
-                        // v.
                         if let Some(rx) = regex_remove {
                             rx.replace_all(&v.to_lowercase(), "").to_string()
                         } else {
@@ -294,9 +367,12 @@ impl Tier {
         ngrams
     }
 
-    /// Returns all words/tokens in all annotation values in tier.
+    /// Returns all words/tokens in all annotation values in the tier.
+    /// 
     /// Splits on whitespace, meaning CJK will not work with this method.
-    /// Optionally return all unique words.
+    /// 
+    /// Optionally specify affixes to strip, only returning unique words,
+    /// and or ignoring case.
     pub fn tokens(
         &self,
         strip_prefix: Option<&str>,
@@ -341,11 +417,12 @@ impl Tier {
         tokens
     }
 
-    /// Adds an annotation as last item in tier.
+    /// Adds an annotation as the last item in the tier.
+    /// 
     /// Does not evaluate whether e.g. referred annotation ID is
     /// valid for a referred annotation.
     ///
-    /// Make sure to add corresponding time slot value to `AnnotationDocument`.
+    /// Make sure to add the corresponding time slot value to `AnnotationDocument`.
     ///
     /// To add an annotation at an abitrary position (e.g. in the middle of a tier),
     /// use `AnnotationDocument::add_annotation()` instead,
@@ -354,14 +431,31 @@ impl Tier {
         self.annotations.push(annotation.to_owned())
     }
 
-    /// Join two tiers. The first tier's (the one this method is used on)
+    /// Extends existing annotations as the last items in tier.
+    /// 
+    /// Does not evaluate whether e.g. referred annotation ID is
+    /// valid for a referred annotation.
+    ///
+    /// Make sure to add the corresponding time slot value to `AnnotationDocument`.
+    ///
+    /// To add an annotation at an abitrary position (e.g. in the middle of a tier),
+    /// use `AnnotationDocument::add_annotation()` instead,
+    /// since time slots may have to be added and re-mapped.
+    pub fn extend(&mut self, annotations: &[Annotation]) {
+        self.annotations.extend(annotations.to_owned())
+    }
+
+    /// Joins two tiers.
+    /// 
+    /// The first tier's (the one this method is used on)
     /// attributes will be preserved, the second one's will discarded.
-    /// No checks for duplicate annotations will be made.
+    /// 
+    /// No checks for duplicate annotations or time slot correctness are made.
     pub fn join(&mut self, tier: &Tier) {
         self.annotations.extend(tier.annotations.to_owned());
     }
 
-    pub fn overlaps(&self) {
+    pub fn _overlaps(&self) {
         // cmp current boundaries with next
         // either:
         // - join
@@ -371,13 +465,15 @@ impl Tier {
         unimplemented!()
     }
 
-    /// Merge two tiers. The first tier's (the one this method is used on)
+    /// Merges two tiers.
+    /// 
+    /// The first tier's (the one this method is used on)
     /// is prioritized in terms of what attributes will be preserved.
     /// If join is set to `true` overlapping annotations will be joined.
     /// Otherwise, the first annotation in chronological order
     /// will be prioritised. The second annotation's start time stamp.
     /// TODO currently does not remap ID values. Should be optional if implemented.
-    pub fn merge(&mut self, tier: &Tier, _join: bool) -> Result<(), EafError> {
+    pub fn _merge(&mut self, tier: &Tier, _join: bool) -> Result<(), EafError> {
         // Return error if tiers are not the same type
         if self.is_ref() != tier.is_ref() {
             return Err(EafError::IncompatibleTiers((
@@ -439,19 +535,6 @@ impl Tier {
         Ok(())
     }
 
-    /// Extends existing annotations as the last items in tier.
-    /// Does not evaluate whether e.g. referred annotation ID is
-    /// valid for a referred annotation.
-    ///
-    /// Make sure to add the corresponding time slot value to `AnnotationDocument`.
-    ///
-    /// To add an annotation at an abitrary position (e.g. in the middle of a tier),
-    /// use `AnnotationDocument::add_annotation()` instead,
-    /// since time slots may have to be added and re-mapped.
-    pub fn extend(&mut self, annotations: &[Annotation]) {
-        self.annotations.extend(annotations.to_owned())
-    }
-
     pub fn iter(&self) -> impl Iterator<Item = &Annotation> {
         self.annotations.iter()
     }
@@ -464,9 +547,12 @@ impl Tier {
         self.annotations.iter_mut()
     }
 
-    /// Returns a list of time slots generated from the annotations in the tier.
-    /// Make sure to run `AnnotationDocument::derive()` or time slot values may not be set.
-    pub fn timeslots(&self) -> HashMap<String, Option<i64>> {
+    /// Returns a hashmap of time slots generated from the annotations
+    /// in the tier as `HashMap<time_slot_reference, time_slot_value>`.
+    /// 
+    /// If timeslot values are not set for an annotation
+    /// `TimeSlot.value` will be set to `None`.
+    pub fn lookup_timeslots(&self) -> HashMap<String, Option<i64>> {
         let mut ts: HashMap<String, Option<i64>> = HashMap::new();
         self.iter().for_each(|a| {
             if let (Some((ref1, ref2)), (val1, val2)) = (a.ts_ref(), a.ts_val()) {
@@ -477,17 +563,86 @@ impl Tier {
         ts
     }
 
-    /// Returns annotation values only.
-    // pub fn values(&self) -> Vec<String> {
+    /// Generates and returns timeslots for all annotations in this tier.
+    /// For setting e.g. `TimeOrder` in `Eaf`.
+    /// 
+    /// If timeslot values are not set for an annotation
+    /// `TimeSlot.value` will be set to `None`.
+    pub fn derive_timeslots(&self) -> Option<Vec<TimeSlot>> {
+        let mut ts: Vec<TimeSlot> = Vec::new();
+        for a in self.annotations.iter() {
+            let (t_ref1, t_ref2) = a.ts_ref()?;
+            let (t1, t2) = a.ts_val();
+            let ts1 = TimeSlot::new(&t_ref1, t1);
+            let ts2 = TimeSlot::new(&t_ref2, t2);
+            ts.append(&mut vec![ts1, ts2])
+        }
+
+        Some(ts)
+    }
+
+    /// Returns the tier's annotation values as `&str`s.
     pub fn values(&self) -> Vec<&str> {
         self.iter().map(|a| a.to_str()).collect()
     }
 
+    /// Returns the annotation ID for the tier's first annotation.
+    pub fn first_a_id(&self) -> Option<String> {
+        self.annotations.first().map(|a| a.id())
+    }
+    
+    /// Returns the annotation ID for the tier's last annotation.
+    pub fn last_a_id(&self) -> Option<String> {
+        self.annotations.last().map(|a| a.id())
+    }
+
+    /// Attempts to sort annotation IDs via their numerical component (e.g. "39", in "a39").
+    /// 
+    /// This will not work in cases where software other than ELAN (such as SIL FLEx)
+    /// has generated the file, and generates arbitrary annotation IDs that do not conform
+    /// to ELAN's own convention.
+    fn sort_a_id_numerical(&self) -> Vec<String> {
+        let mut id: Vec<(usize, String)> = self.iter()
+            .filter_map(|a| {
+                let id = a.id();
+                // returns e.g. 39 as usize in "a39"
+                let num = a.id_num();
+
+                // Ignore anything that can not be parsed
+                match num {
+                    Ok(n) => Some((n, id)),
+                    Err(_) => None
+                }
+            })
+            .collect();
+
+        assert_eq!(self.len(), id.len(), "Annotations and sorted annotation IDs differ in length");
+
+        id.sort_by_key(|(n, _)| *n);
+
+        id.iter()
+            .map(|(_, s)| s)
+            .cloned()
+            .collect()
+    }
+
+    /// Returns the "minimum" annotation ID via their numerical component,
+    /// (e.g. "39" < "103", in "a39" and "a103").
+    /// 
+    /// This will not work in cases where software other than ELAN (such as SIL FLEx)
+    /// has generated the file, and generates arbitrary annotation IDs that do not conform
+    /// to ELAN's own convention
+    pub fn min_a_id(&self) -> Option<String> {
+        self.sort_a_id_numerical().first().cloned()
+    }
+
+    /// Returns the "maximum" annotation ID via their numerical component,
+    /// (e.g. "39" < "103", in "a39" and "a103").
+    /// 
+    /// This will not work in cases where software other than ELAN (such as SIL FLEx)
+    /// has generated the file, and generates arbitrary annotation IDs that do not conform
+    /// to ELAN's own convention
     pub fn max_a_id(&self) -> Option<String> {
-        let mut id: Vec<String> = self.iter().map(|a| a.id()).collect();
-
-        id.sort();
-
-        id.last().cloned()
+        self.sort_a_id_numerical().last().cloned()
     }
 }

@@ -1,4 +1,6 @@
-//! EAF time order.
+//! Time order.
+//! 
+//! Map of time slot ID to time values (milliseconds).
 
 use std::collections::HashMap;
 use serde::{Serialize, Deserialize};

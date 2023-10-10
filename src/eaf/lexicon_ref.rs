@@ -1,4 +1,4 @@
-//! EAF lexicon reference.
+//! Lexicon reference.
 
 use serde::{Serialize, Deserialize};
 use super::eaf::unspecified;
@@ -6,7 +6,7 @@ use super::eaf::unspecified;
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "UPPERCASE")]
 #[serde(rename = "LEXICON_REF")]
-/// EAF lexicon reference.
+/// Lexicon reference.
 pub struct LexiconRef {
     #[serde(rename = "@LEX_REF_ID")]
     pub lex_ref_id: String,

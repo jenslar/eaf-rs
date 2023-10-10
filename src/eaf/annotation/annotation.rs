@@ -1,15 +1,22 @@
-//! ELAN annotations can be either an alignable annotation (if in a main tier),
-//! or a referred annotation (if in a referred tier).
+//! Annotation.
+//!
+//! ELAN annotations can be either an alignable annotation (part of a main tier),
+//! or a referred annotation (part of a referred tier).
+//! 
 //! Aligned annotations contain references to time slots (the annotation's time span),
-//! whereas referred annotations contain a reference to an annotation in the parent tier.
+//! whereas referred annotations reference an annotation in the parent tier.
 
 use std::collections::HashMap;
 use regex::Regex;
 use serde::{Serialize, Deserialize};
 
+use crate::EafError;
+
 use super::{AnnotationType, RefAnnotation, AlignableAnnotation, AnnotationValue};
 
-/// ELAN annotation. Aligned or referred.
+/// Annotation. Two types exist:
+/// - Aligned: part of a main tier, with explicit time slot references
+/// - Referred: part of a referred tier, references an annotation in the parent tier
 #[derive(Debug, Default, Clone, Deserialize, Serialize, PartialEq, Eq, Hash, PartialOrd)]
 #[serde(rename = "ANNOTATION")]
 pub struct Annotation {
@@ -133,14 +140,12 @@ impl Annotation {
         }
     }
 
-    pub fn to_str(& self) -> &str {
-        match &self.annotation_type {
-            AnnotationType::AlignableAnnotation(a) => a.annotation_value.as_ref(),
-            AnnotationType::RefAnnotation(a) => a.annotation_value.as_ref()
-        }
+    /// Returns the annotation value.
+    pub fn to_str(&self) -> &str {
+        self.value().as_ref()
     }
 
-    /// Returns all words/tokens in annotation value.
+    /// Returns all words/tokens in the annotation value.
     /// Restricted to whitespace delimited scripts.
     pub fn tokens(&self) -> Vec<&str> {
         self.to_str()
@@ -148,7 +153,7 @@ impl Annotation {
             .collect::<Vec<&str>>()
     }
     
-    /// Returns number of words/tokens in annotation value.
+    /// Returns number of words/tokens in the annotation value.
     /// Restricted to whitespace delimited scripts.
     pub fn len(&self) -> usize {
         self.tokens()
@@ -167,9 +172,7 @@ impl Annotation {
         }
     }
 
-    /// Returns annotation value.
-    /// 
-    // TODO check if `<ANNOTATION_VALUE/>` raises error (or returns `None`) for `value()`.
+    /// Returns the annotation value.
     pub fn value(&self) -> &AnnotationValue {
         match &self.annotation_type {
             AnnotationType::AlignableAnnotation(a) => &a.annotation_value,
@@ -177,7 +180,7 @@ impl Annotation {
         }
     }
 
-    /// Sets annotation value.
+    /// Sets the annotation value.
     pub fn set_value(&mut self, annotation_value: &str) {
         match &mut self.annotation_type {
             AnnotationType::AlignableAnnotation(a) => {
@@ -189,12 +192,24 @@ impl Annotation {
         }
     }
 
-    /// Returns annotation ID.
+    /// Returns the annotation ID.
     pub fn id(&self) -> String {
         match &self.annotation_type {
             AnnotationType::AlignableAnnotation(a) => a.annotation_id.to_owned(),
             AnnotationType::RefAnnotation(a) => a.annotation_id.to_owned()
         }
+    }
+
+    /// Returns the numerical component of the annotation ID.
+    pub fn id_num(&self) -> Result<usize, EafError> {
+        let id = match &self.annotation_type {
+            AnnotationType::AlignableAnnotation(a) => a.annotation_id.to_owned(),
+            AnnotationType::RefAnnotation(a) => a.annotation_id.to_owned()
+        };
+        
+        id.trim_start_matches(char::is_alphabetic)
+            .parse()
+            .map_err(|e| EafError::ParseIntError(e))
     }
 
     /// Sets annotation ID.
@@ -207,7 +222,9 @@ impl Annotation {
 
     /// Returns referred annotation ID for a referred annotation,
     /// and `None` for an aligned annotation.
-    /// I.e. the attribute `ANNOTATION_REF`, if annotation is a `REF_ANNOTATION`.
+    /// 
+    /// I.e. the value for attribute `ANNOTATION_REF`,
+    /// if the annotation is a `REF_ANNOTATION`.
     pub fn ref_id(&self) -> Option<String> {
         match &self.annotation_type {
             AnnotationType::RefAnnotation(a) => Some(a.annotation_ref.to_owned()),
@@ -324,7 +341,7 @@ impl Annotation {
     }
 
     /// Returns main annotation ID for a "referred annotation",
-    /// and `None` for an "aligned annotation" (or if `AnnotationDocument::derive()`
+    /// and `None` for an "aligned annotation" (or if `Eaf::derive()`
     /// has not been run).
     /// I.e. the annotation at the top of the hierarchy in the main tier.
     /// 
@@ -341,7 +358,7 @@ impl Annotation {
     /// of referred tiers, this sets the specified ID
     /// as representing the alignable annotation "at the top"
     /// in the main tier. Mostly for internal use, since "main annotation"
-    /// is derived and set via `AnnotationDocument::derive()`.
+    /// is derived and set via `Eaf::derive()`.
     /// 
     /// Note that this field is not part of the EAF specification.
     pub fn set_main(&mut self, main_annotation: &str) {
@@ -353,11 +370,10 @@ impl Annotation {
         }
     }
 
-    /// Returns time slot values if set via e.g. `AnnotationDocument::derive()`.
+    /// Returns annotation start and end time in milliseconds if set.
     /// 
     /// Note that these fields are not part of the EAF specification.
     pub fn ts_val(&self) -> (Option<i64>, Option<i64>) {
-    // pub fn ts_val(&self) -> (Option<u64>, Option<u64>) {
         match &self.annotation_type {
             AnnotationType::AlignableAnnotation(a) => {
                 (a.time_value1, a.time_value2)
@@ -368,13 +384,13 @@ impl Annotation {
         }
     }
 
-    /// Sets `Annotation.time_slot_val1` and `Annotation.time_slot_val2`.
+    /// Sets annotation start and end time in milliseconds.
     /// 
     /// Note that these fields are not part of the EAF specification
     /// and are ignored when de/serializing, but creates a more independent
-    /// `Annotation` whenever it is used outside the `AnnotationDocument` context.
+    /// `Annotation` whenever it is used outside the `Eaf` context.
     /// 
-    /// Set via `AnnotationDocument::derive()`.
+    /// Automatically set when `Eaf::derive()` is called.
     pub fn set_ts_val(&mut self, time_value1: Option<i64>, time_value2: Option<i64>) {
         match &mut self.annotation_type {
             AnnotationType::AlignableAnnotation(a) => {
@@ -385,22 +401,6 @@ impl Annotation {
                 a.time_value1 = time_value1;
                 a.time_value2 = time_value2;
             },
-        }
-    }
-
-    pub fn with_tier_id(self, tier_id: &str) -> Self {
-        Self {
-            annotation_type: {
-                match self.annotation_type {
-                    AnnotationType::AlignableAnnotation(a) => {
-                       AnnotationType::AlignableAnnotation(a.with_tier_id(tier_id))
-                    },
-                    AnnotationType::RefAnnotation(a) => {
-                       AnnotationType::RefAnnotation(a.with_tier_id(tier_id))
-                    }
-                }
-            },
-            ..self
         }
     }
 
@@ -424,7 +424,6 @@ impl Annotation {
     /// 
     /// Note that this field is not part of the EAF specification,
     /// and is ignored when de/serializing.
-    /// Set via `AnnotationDocument::derive()`.
     pub fn tier_id(&self) -> Option<String> {
         match &self.annotation_type {
             AnnotationType::AlignableAnnotation(a) => {
@@ -440,7 +439,6 @@ impl Annotation {
     /// 
     /// Note that this field is not part of the EAF specification,
     /// and is ignored when de/serializing.
-    /// Set via `AnnotationDocument::derive()`.
     pub fn set_tier_id(&mut self, tier_id: &str) {
         match &mut self.annotation_type {
             AnnotationType::AlignableAnnotation(a) => {
@@ -449,6 +447,27 @@ impl Annotation {
             AnnotationType::RefAnnotation(a) => {
                 a.tier_id = Some(tier_id.to_owned());
             },
+        }
+    }
+
+    /// Returns an independent copy of the annotation
+    /// with specified tier ID.
+    /// 
+    /// Note that this field is not part of the EAF specification,
+    /// and is ignored when de/serializing.
+    pub fn with_tier_id(self, tier_id: &str) -> Self {
+        Self {
+            annotation_type: {
+                match self.annotation_type {
+                    AnnotationType::AlignableAnnotation(a) => {
+                       AnnotationType::AlignableAnnotation(a.with_tier_id(tier_id))
+                    },
+                    AnnotationType::RefAnnotation(a) => {
+                       AnnotationType::RefAnnotation(a.with_tier_id(tier_id))
+                    }
+                }
+            },
+            ..self
         }
     }
 
@@ -475,5 +494,17 @@ impl Annotation {
         }
 
         ngrams
+    }
+
+    /// Returns `true` if the annotation value is identical
+    /// If `time` is set to `true, start time and end time
+    /// are also compared.
+    pub fn is_identical(&self, annotation: &Self, compare_time: bool) -> bool {
+        match compare_time {
+            // Both annotation value and time stamps must match
+            true => self.ts_val() == annotation.ts_val() && self.value() == annotation.value(),
+            // Only annotation value must match
+            false => self.value() == annotation.value()
+        }
     }
 }

@@ -1,4 +1,6 @@
-//! EAF locale.
+//! Locale.
+//! 
+//! Specifies country, language, language variant.
 
 use serde::{Serialize, Deserialize};
 

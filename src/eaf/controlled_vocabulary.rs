@@ -1,4 +1,4 @@
-//! EAF controlled vocabularies.
+//! Controlled vocabulary.
 
 use serde::{Serialize, Deserialize};
 

@@ -22,8 +22,8 @@
 //! use eaf_rs::Eaf;
 //! fn main() -> std::io::Result<()> {
 //!     let path = std::path::Path::new("MYEAF.eaf");
-//!     // Deserialize ELAN-file
-//!     let eaf = Eaf::de(&path, true)?;
+//!     // Read ELAN-file
+//!     let eaf = Eaf::read(&path)?;
 //!     println!("{:#?}", eaf);
 //!     Ok(())
 //! }
@@ -32,6 +32,7 @@
 pub mod eaf;
 pub mod pfsx;
 pub mod ffmpeg;
+pub mod timeseries;
 
 pub use eaf::{
     EafError,
@@ -58,3 +59,4 @@ pub use eaf::{
     JsonTier,
 };
 pub use pfsx::Pfsx;
+pub use timeseries::TimeSeries;

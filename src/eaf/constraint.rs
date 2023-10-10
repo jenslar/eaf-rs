@@ -1,4 +1,4 @@
-//! EAF constraint.
+//! Constraint.
 
 use serde::{
     Serialize,
