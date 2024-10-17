@@ -6,7 +6,7 @@ To de/serialize XML [`quick-xml`](https://github.com/tafia/quick-xml)'s serde su
 
 Some `Eaf`-methods are not yet ready and may be private.
 
-Any EAF-file v2.7+ should be ok.
+Any EAF-file v2.7+ should be ok. When creating new EAF-files with `eaf-rs` EAF v3.0 is the default.
 
 Usage (not yet on crates.io):
 

@@ -1,30 +1,10 @@
-//! Constraint.
+//! Stereotype.
 
-use serde::{
-    Serialize,
-    Deserialize,
-};
+use serde::{Serialize, Deserialize};
 
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
-#[serde(rename_all = "UPPERCASE")]
-pub struct Constraint {
-    #[serde(rename="@DESCRIPTION")]
-    pub description: String,
-    #[serde(rename="@STEREOTYPE")]
-    pub stereotype: StereoType,
-}
+use super::Constraint;
 
-impl Constraint {
-    pub fn from_stereotype(stereotype: &StereoType) -> Self {
-        stereotype.to_constraint()
-    }
-
-    pub fn from_string(stereotype: &String) -> Self {
-        StereoType::from_string(stereotype).to_constraint()
-    }
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, Hash)]
 pub enum StereoType {
     #[serde(rename = "Included_In")]
     IncludedIn, // time alignable: true
@@ -108,4 +88,3 @@ impl StereoType {
         }
     }
 }
-

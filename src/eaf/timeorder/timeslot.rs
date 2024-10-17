@@ -4,7 +4,7 @@
 
 use serde::{Serialize, Deserialize};
 
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq, Hash)]
 #[serde(rename_all = "UPPERCASE")]
 pub struct TimeSlot {
     #[serde(rename = "@TIME_SLOT_ID")]
@@ -29,5 +29,14 @@ impl TimeSlot {
     /// Returns `true` if the a time value specified.
     pub fn has_val(&self) -> bool {
         self.time_value.is_some()
+    }
+
+    /// Returns `true` if the time value is contained within
+    /// specified time span.
+    pub fn contained_in(&self, start_ms: i64, end_ms: i64) -> bool {
+        match self.time_value {
+            Some(val) => (start_ms..=end_ms).contains(&val),
+            None => false
+        }
     }
 }

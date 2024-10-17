@@ -15,4 +15,4 @@ pub use alignable_annotation::AlignableAnnotation;
 pub use ref_annotation::RefAnnotation;
 pub use annotation_type::AnnotationType;
 pub use annotation_value::AnnotationValue;
-pub use builder::AnnotationBuilder;
+pub use builder::{AnnotationBuilder, AnnotationAlignable, AnnotationReferred};

@@ -4,7 +4,7 @@
 
 use serde::{Serialize, Deserialize};
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "UPPERCASE")]
 /// EAF locale.
 pub struct Locale {

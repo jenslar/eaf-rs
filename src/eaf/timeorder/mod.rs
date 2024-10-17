@@ -4,6 +4,8 @@
 
 mod timeorder;
 mod timeslot;
+mod builder;
 
 pub use timeorder::TimeOrder;
 pub use timeslot::TimeSlot;
+pub use builder::TimeOrderBuilder;

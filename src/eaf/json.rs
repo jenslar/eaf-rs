@@ -1,6 +1,6 @@
 //! Simplified EAF structure for exporting to JSON.
 
-use std::collections::HashMap;
+use std::{collections::HashMap, path::PathBuf};
 
 use serde::{Serialize, Deserialize};
 use super::Eaf;
@@ -9,7 +9,8 @@ use super::Eaf;
 /// Simplified EAF structure containing only media links,
 /// properties, and tiers for exporting to JSON.
 pub struct JsonEaf {
-    pub media: Vec<String>,
+    // pub media: Vec<String>,
+    pub media: Vec<PathBuf>,
     pub properties: HashMap<String, String>,
     pub tiers: Vec<JsonTier>
 }
@@ -77,8 +78,8 @@ impl From<&Eaf> for JsonEaf {
             json_tier.annotations = eaf_tier.annotations.iter()
                 .filter_map(|a| if let (Some(ts1), Some(ts2)) = a.ts_val() {
                     Some(JsonAnnotation {
-                        id: a.id(),
-                        ref_id: a.ref_id(),
+                        id: a.id().to_owned(),
+                        ref_id: a.ref_id().map(|s| s.to_owned()),
                         start: ts1,
                         end: ts2,
                         value: a.to_str().to_owned()
@@ -87,7 +88,7 @@ impl From<&Eaf> for JsonEaf {
                     None
                 })
                 .collect();
-            
+
             json.tiers.push(json_tier)
         }
 

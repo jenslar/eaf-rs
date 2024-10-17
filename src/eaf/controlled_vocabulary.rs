@@ -6,7 +6,7 @@ use serde::{Serialize, Deserialize};
 // see: https://users.rust-lang.org/t/serde-deserializing-a-vector-of-enums/51647
 // TODO errors on optional <DESCRIPTION ...> child element in v2.8 eaf, parallel to entry:
 // /Users/jens/dev/TESTDATA/eaf/2014-10-13_1800_US_CNN_Newsroom_12-493.eaf
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "UPPERCASE")]
 #[serde(rename = "CONTROLLED_VOCABULARY")]
 pub struct ControlledVocabulary {
@@ -44,21 +44,24 @@ impl Default for ControlledVocabulary {
 
 /// Contains the possibilities for CV entries,
 /// depending on EAF version.
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, Hash)]
 pub enum CVType {
     /// EAF v2.8+ Description, 0 - 1 occurrences.
-    #[serde(rename(deserialize = "DESCRIPTION"))]
+    // #[serde(rename(deserialize = "DESCRIPTION"))] // why only deserialize?
+    #[serde(rename = "DESCRIPTION")]
     Description(Description),
     /// EAF v2.7-, 0+ occurrences.
-    #[serde(rename(deserialize = "CV_ENTRY"))]
+    // #[serde(rename(deserialize = "CV_ENTRY"))]
+    #[serde(rename = "CV_ENTRY")]
     CvEntry(CvEntry),
     /// EAF v2.8+, 0+ occurrences.
-    #[serde(rename(deserialize = "CV_ENTRY_ML"))]
+    // #[serde(rename(deserialize = "CV_ENTRY_ML"))]
+    #[serde(rename = "CV_ENTRY_ML")]
     CvEntryMl(CvEntryMl),
 }
 
 /// Controlled Vocabulary Entry for EAF v2.7
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "UPPERCASE")]
 #[serde(rename = "CV_ENTRY")]
 pub struct CvEntry {
@@ -73,7 +76,7 @@ pub struct CvEntry {
 }
 
 /// Controlled Vocabulary Entry for EAF v2.8+
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "UPPERCASE")]
 #[serde(rename = "CV_ENTRY_ML")]
 pub struct CvEntryMl {
@@ -96,11 +99,11 @@ impl Default for CvEntryMl {
     }
 }
 
-// TODO this currently creates the wrong structure in KebabCase:
-// TODO e.g. <Description><Description lang_reg="eng"/></Description>, rather than
-// TODO e.g. <DESCRIPTION lang_reg="eng"/>
+// !!! this currently creates the wrong structure in KebabCase:
+// !!! e.g. <Description><Description lang_reg="eng"/></Description>, rather than
+// !!! e.g. <DESCRIPTION lang_reg="eng"/>
 /// EAF v2.8+
-#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[derive(Debug, Clone, Default, Deserialize, Serialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "UPPERCASE")]
 #[serde(rename = "CVE_VALUE")]
 pub struct CveValue {
@@ -114,7 +117,7 @@ pub struct CveValue {
 }
 
 // EAF v2.8+
-#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[derive(Debug, Clone, Default, Deserialize, Serialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "UPPERCASE")]
 pub struct Description {
     #[serde(rename="@LANG_REF")]

@@ -8,3 +8,15 @@ use serde::{Serialize, Deserialize};
 pub struct License {
     url: Option<String>
 }
+
+impl From<&str> for License {
+    fn from(value: &str) -> Self {
+        Self { url: Some(String::from(value)) }
+    }
+}
+
+impl From<String> for License {
+    fn from(value: String) -> Self {
+        Self { url: Some(String::from(value)) }
+    }
+}

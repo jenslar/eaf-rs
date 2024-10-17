@@ -3,7 +3,7 @@
 use serde::{Serialize, Deserialize};
 use super::eaf::unspecified;
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "UPPERCASE")]
 #[serde(rename = "LEXICON_REF")]
 /// Lexicon reference.

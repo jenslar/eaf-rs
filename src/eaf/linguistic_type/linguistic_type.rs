@@ -4,7 +4,7 @@ use serde::{Serialize, Deserialize};
 
 use super::StereoType;
 
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "UPPERCASE")]
 /// Linguistic type.
 pub struct LinguisticType {
@@ -32,15 +32,7 @@ pub struct LinguisticType {
 
 impl Default for LinguisticType {
     fn default() -> Self {
-        Self {
-            linguistic_type_id: "default-lt".to_owned(),
-            time_alignable: Some(true),
-            constraints: None,
-            graphic_references: None,
-            controlled_vocabulary: None,
-            ext_ref: None,
-            lexicon_ref: None,
-        }
+        Self::new("default-lt", None)
     }
 }
 
