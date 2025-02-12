@@ -21,5 +21,4 @@ termcolor = "1.4.1"
 blake3 = "1.5.5"
 uuid = { version = "1.13.1", features = ["v4"]}
 url = {version = "2.5.4", features = ["serde"]}
-# mp4iter = {git = "https://github.com/jenslar/mp4iter.git"}
-mp4iter = {path = "../mp4iter"}
+mp4iter = {git = "https://github.com/jenslar/mp4iter.git"}
