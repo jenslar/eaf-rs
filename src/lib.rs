@@ -33,9 +33,12 @@
 pub mod eaf;
 pub mod pfsx;
 pub mod ffmpeg;
+pub mod lexicon;
 pub mod timeseries;
 pub mod support;
 pub mod errors;
+
+pub mod tests;
 
 pub use eaf::{
     Eaf,

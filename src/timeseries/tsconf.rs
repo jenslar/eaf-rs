@@ -1,9 +1,9 @@
 //! Time series configuration file created by ELAN when linking CSV timeseries files
 //! (Menu: "Edit" `->` "Linked files..." `->` tab "Linked secondary files").
-//! 
+//!
 //! File naming convention: For `myelanfile.eaf`, the time series config file should be named `myelanfile_tsconf.xml`.
 //! The ELAN file links both the timeseries file and the time series configuration file.
-//! 
+//!
 //! Example file:
 //! ```xml
 //! <?xml version="1.0" encoding="UTF-8"?>
@@ -48,17 +48,17 @@ impl TimeSeries {
     pub fn read(path: &Path) -> Result<TimeSeries, EafError> {
         Self::de(path)
     }
-    
+
     /// Write time series configuration file, optionally with indentation
     /// specified in single spaces.
     /// If `indent` is `None`, the XML will be written on a single line.
     pub fn write(&self, path: &Path, indent: Option<usize>) -> Result<(), EafError> {
         let content = self.to_string(indent)?;
         let mut outfile = File::create(&path)?;
-        
+
         outfile.write_all(content.as_bytes()).map_err(|e| e.into())
     }
-    
+
     /// Serialize `TimeSeries`to XML string.
     pub fn to_string(&self, indent: Option<usize>) -> Result<String, EafError> {
         self.se(indent)
@@ -80,7 +80,7 @@ impl TimeSeries {
             ser.indent(' ', i);
         }
 
-        self.serialize(ser).map_err(|e| EafError::QuickXMLDeError(e))?;
+        self.serialize(ser).map_err(|e| EafError::QuickXMLSeError(e))?;
 
         Ok([
             // Add XML declaration, since not added by quick-xml

@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+// use std::path::{Path, PathBuf};
 
 use crate::{
     Constraint,
@@ -77,7 +77,7 @@ impl EafBuilder {
             ..self
         }
     }
-    
+
     /// Add format.
     pub fn format(self, format: impl Into<String>) -> Self {
         Self {

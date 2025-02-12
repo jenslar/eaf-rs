@@ -126,6 +126,7 @@ pub enum EafError {
     QuickXMLError(quick_xml::Error),
     /// Quick-xml deserialization error.
     QuickXMLDeError(quick_xml::DeError),
+    QuickXMLSeError(quick_xml::SeError),
     /// Invalid path.
     PathInvalid(String),
     /// Error decoding string as UTF-8.
@@ -162,6 +163,7 @@ impl fmt::Display for EafError {
             EafError::Utf8Error(err) => write!(f, "Error parsing bytes to string: {}", err),
             EafError::QuickXMLError(err) => write!(f, "QuickXML error parsing EAF: {}", err),
             EafError::QuickXMLDeError(err) => write!(f, "QuickXML error deserialising EAF: {}", err),
+            EafError::QuickXMLSeError(err) => write!(f, "QuickXML error serialising EAF: {}", err),
             EafError::ParseIntError(err) => write!(f, "Error parsing string to integer: {}", err),
             EafError::ParseFloatError(err) => write!(f, "Error parsing string to float: {}", err),
             EafError::TierIsTokenized(tier_id) => write!(f, "'{}' is a tokenized tier", tier_id),
@@ -246,6 +248,13 @@ impl From<quick_xml::Error> for EafError {
 impl From<quick_xml::DeError> for EafError {
     fn from(err: quick_xml::DeError) -> EafError {
         EafError::QuickXMLDeError(err)
+    }
+}
+
+/// Converts quick_xml::SeError to EafError
+impl From<quick_xml::SeError> for EafError {
+    fn from(err: quick_xml::SeError) -> EafError {
+        EafError::QuickXMLSeError(err)
     }
 }
 

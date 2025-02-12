@@ -52,7 +52,7 @@ impl Default for Pfsx {
     }
 }
 
-impl Pfsx {    
+impl Pfsx {
     /// Deserialize ELAN preferences XML-file (`pfsx`).
     fn de(path: &Path) -> Result<Self, EafError> {
         // Let Quick XML use serde to deserialize
@@ -74,7 +74,7 @@ impl Pfsx {
             ser.indent(' ', ind);
         }
 
-        pfsx.serialize(ser).map_err(|e| EafError::QuickXMLDeError(e))?;
+        pfsx.serialize(ser).map_err(|e| EafError::QuickXMLSeError(e))?;
 
         Ok([
             // Add XML declaration, since not added by quick-xml

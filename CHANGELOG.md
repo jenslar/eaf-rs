@@ -1,3 +1,6 @@
+# v0.6.1
+- Bumped crates.
+
 # v0.6.0
 - NEW: Testing merging arbitrary number of EAF-files. Caveat: overlapping annotations on the same (merged) tier raises error.
 - NEW: Testing tier, eaf builder patterns.

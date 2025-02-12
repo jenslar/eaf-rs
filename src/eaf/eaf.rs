@@ -359,7 +359,7 @@ impl Eaf {
             ser.indent(' ', ind);
         }
 
-        eaf.serialize(ser).map_err(|e| EafError::QuickXMLDeError(e))?;
+        eaf.serialize(ser).map_err(|e| EafError::QuickXMLSeError(e))?;
 
         Ok([
             // Add XML declaration, since not added by quick-xml
