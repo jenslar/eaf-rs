@@ -1,3 +1,6 @@
+# v0.6.2
+- Bumped crates.
+
 # v0.6.1
 - Bumped crates.
 
