@@ -24,7 +24,12 @@ pub(crate) fn overlap(annotations: &[Annotation]) -> bool {
     // ranges.sort_by(|a, b| a.start.cmp(&b.start));
     ranges.sort_by_key(|r| r.start);
     ranges.windows(2).any(|w| {
-        w[0].end > w[1].start
+        let overlaps = w[0].end > w[1].start;
+        if overlaps {
+            panic!("OVERLAP {w:?}");
+
+        }
+        overlaps
     })
 }
 

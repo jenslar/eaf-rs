@@ -1,5 +1,5 @@
 //! Property.
-//! 
+//!
 //! Optional key, value store specifying position at exit,
 //! but can be used for custom user data,
 //! as long as a unique "name" attribute is used.

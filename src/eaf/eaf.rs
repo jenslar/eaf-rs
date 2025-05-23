@@ -484,7 +484,7 @@ impl Eaf {
             .build()?;
 
         eaf.index();
-        eaf.derive()?; // probably not needed?
+        eaf.derive()?; // probably not needed? possibly good for doing cross ref id check
 
         Ok(eaf)
     }

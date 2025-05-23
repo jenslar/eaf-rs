@@ -2,11 +2,11 @@
 //!
 //! ELAN annotations can be either an alignable annotation (part of a main tier),
 //! or a referred annotation (part of a referred tier).
-//! 
+//!
 //! Aligned annotations contain references to time slots (the annotation's time span),
 //! whereas referred annotations reference an annotation in the parent tier.
-//! 
-//! Note that some functionality only applies to whitespace delimited scripts, 
+//!
+//! Note that some functionality only applies to whitespace delimited scripts,
 //! such as anything that requires counting words/tokens (if solutions arise that do not
 //! require language specific parsers or models I will add this, but as of now it is not
 //! a simple problem to wolve).
@@ -109,7 +109,7 @@ impl Annotation {
     }
 
     /// Creates a new referred annotation.
-    /// 
+    ///
     /// `previous` is used to set ID
     /// for previous annotation
     /// when building a tokenized tier.
@@ -123,7 +123,7 @@ impl Annotation {
             .annotation_id(annotation_id) // error if not set
             .annotation_value(annotation_value)
             .annotation_ref(annotation_ref); // error if not set
-        
+
         if let Some(prev) = previous {
             builder = builder.previous_annotation(prev)
         }
@@ -136,7 +136,7 @@ impl Annotation {
     /// Converts a ref annotation to an alignable annotation.
     /// If input annotation is already an alignable annotation,
     /// a copy is returned untouched.
-    /// 
+    ///
     /// Does not validate provided time slot references.
     pub fn to_alignable(
         &self,
@@ -167,7 +167,7 @@ impl Annotation {
     /// Converts an alignable annotation to a ref annotation.
     /// If input annotation is already a ref annotation,
     /// a copy is returned untouched.
-    /// 
+    ///
     /// Does not validate specified reference annotation ID (`ref_id`)
     /// or previous annotation (`prev`).
     pub fn to_referred(
@@ -210,7 +210,7 @@ impl Annotation {
             .split_ascii_whitespace()
             .collect::<Vec<&str>>()
     }
-    
+
     /// Returns number of words/tokens in the annotation value.
     /// Restricted to whitespace delimited scripts.
     pub fn len(&self) -> usize {
@@ -219,11 +219,11 @@ impl Annotation {
     }
 
     /// Returns average token length.
-    /// 
+    ///
     /// Restriction: Only applies to whitespace delimited scripts,
     /// and may return the wrong for values for some scripts.
     /// Use `graphemes = true` in these cases.
-    /// 
+    ///
     /// `graphemes = true` uses <https://crates.io/crates/unicode-segmentation>
     /// to determine grapheme clusters (currently set to find extended grapheme clusters)
     /// as opposed to Rust's built-in `char` type.
@@ -290,7 +290,7 @@ impl Annotation {
 
     /// Returns referred annotation ID for a referred annotation,
     /// and `None` for an aligned annotation.
-    /// 
+    ///
     /// I.e. the value for attribute `ANNOTATION_REF`,
     /// if the annotation is a `REF_ANNOTATION`.
     pub fn ref_id(&self) -> Option<&str> {
@@ -315,9 +315,9 @@ impl Annotation {
 
     /// Returns annotation ID for "previous annotation" if it exists
     /// and annotation is a referred annotation, and None otherwise.
-    /// 
+    ///
     /// If this attribute is set it indicates that the parent tier is tokenzied.
-    /// 
+    ///
     /// Note that the first annotation for a series of tokenized annotations does not
     /// contain the `PREVIOUS_ANNOTATION` attribute, only those that follow do.
     pub fn previous(&self) -> Option<&str> {
@@ -343,9 +343,9 @@ impl Annotation {
     pub(crate) fn ts(&mut self, index: usize) -> [TimeSlot; 2] {
         let (t1, t2) = self.ts_val();
         let (r1, r2) = (format!("ts{}", index), format!("ts{}", index+1));
-        
+
         self.set_ts_ref(&r1, &r2);
-        
+
         [
             TimeSlot::new(&r1, t1),
             TimeSlot::new(&r2, t2),
@@ -427,9 +427,9 @@ impl Annotation {
     /// Returns main annotation ID for a referred annotation,
     /// and `None` for an aligned annotation (or if e.g. `Eaf::derive()`
     /// has not been run).
-    /// 
+    ///
     /// I.e. the annotation at the top of the hierarchy in the main tier.
-    /// 
+    ///
     /// Note that the field that is checked is not part of the EAF specification,
     /// and is populated when calling e.g. `Eaf::derive()`.
     pub fn main(&self) -> Option<&str> {
@@ -440,13 +440,13 @@ impl Annotation {
     }
 
     /// Sets "main" annotation ID for a referred annotation.
-    /// 
+    ///
     /// I.e. if the annotation is deep in a nested hierarchy
     /// of referred tiers, this sets the specified ID
     /// as representing the alignable annotation "at the top"
     /// in the main tier. Mostly for internal use, since "main annotation"
     /// is derived and set via `Eaf::derive()`.
-    /// 
+    ///
     /// Note that this field is not part of the EAF specification.
     pub fn set_main(&mut self, main_annotation: &str) {
         match &mut self.annotation_type {
@@ -458,7 +458,7 @@ impl Annotation {
     }
 
     /// Returns annotation start and end time in milliseconds if set.
-    /// 
+    ///
     /// Note that the field that is checked is not part of the EAF specification,
     /// and is populated when calling e.g. `Eaf::derive()`.
     pub fn ts_val(&self) -> (Option<i64>, Option<i64>) {
@@ -473,7 +473,7 @@ impl Annotation {
     }
 
     /// Mutably sets annotation start and end time in milliseconds.
-    /// 
+    ///
     /// Note that these fields are not part of the EAF specification
     /// and are ignored when de/serializing, but creates a more independent
     /// `Annotation` whenever it is used outside the `Eaf` context.
@@ -491,7 +491,7 @@ impl Annotation {
     }
 
     /// Sets annotation start and end time in milliseconds.
-    /// 
+    ///
     /// Note that these fields are not part of the EAF specification
     /// and are ignored when de/serializing, but creates a more independent
     /// `Annotation` whenever it is used outside the `Eaf` context.
@@ -522,7 +522,7 @@ impl Annotation {
     }
 
     /// Returns tier ID.
-    /// 
+    ///
     /// Note that this field is not part of the EAF specification,
     /// and is ignored when de/serializing.
     pub fn tier_id(&self) -> Option<String> {
@@ -535,9 +535,9 @@ impl Annotation {
             },
         }
     }
-    
+
     /// Sets tier ID.
-    /// 
+    ///
     /// Note that this field is not part of the EAF specification,
     /// and is ignored when de/serializing.
     pub fn set_tier_id(&mut self, tier_id: &str) {
@@ -552,7 +552,7 @@ impl Annotation {
     }
 
     /// Returns the annotation with specified tier ID.
-    /// 
+    ///
     /// Note that this field is not part of the EAF specification,
     /// and is ignored when de/serializing.
     pub fn with_tier_id(self, tier_id: &str) -> Self {
@@ -597,7 +597,7 @@ impl Annotation {
     }
 
     /// Returns `true` if the annotation value is identical
-    /// 
+    ///
     /// If `compare_time` is set to `true, start time and end time
     /// are also compared.
     pub fn is_identical(&self, annotation: &Self, compare_time: bool) -> bool {
@@ -615,12 +615,13 @@ impl Annotation {
         if let (Some(t_self1), Some(t_self2)) = self.ts_val() {
             if let (Some(t_other1), Some(t_other2)) = annotation.ts_val() {
                 let range = t_self1 .. t_self2;
+                println!("{range:?} t other 1: {t_other1} t other 2: {t_other2}");
                 if range.contains(&t_other1) || range.contains(&t_other2) {
                     return true
                 }
             }
         }
-        
+
         false
     }
 
@@ -633,7 +634,7 @@ impl Annotation {
 
     /// Sets annotation ID to UUID v4 and returns
     /// the tuple `(UUID, old_annotation_ID)`.
-    /// 
+    ///
     /// For internal use when e.g. merging tiers
     /// as a quick(-ish) way to ensure unique annotation IDs.
     pub(crate) fn tag(&mut self) -> (String, String) {
@@ -644,7 +645,7 @@ impl Annotation {
 
     // /// Sets annotation ID to UUID v4 and returns
     // /// the tuple `(UUID, old_annotation_ID)`.
-    // /// 
+    // ///
     // /// For internal use when e.g. merging tiers.
     // pub(crate) fn untag(&mut self, id: &str, ref_id: Option<&str>) -> (String, String) {
     //     let old_id = self.id().to_owned();

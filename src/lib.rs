@@ -38,6 +38,8 @@ pub mod timeseries;
 pub mod support;
 pub mod errors;
 
+pub mod tests;
+
 pub use eaf::{
     Eaf,
     Scope,
@@ -57,6 +59,11 @@ pub use eaf::{
     Index,
     Locale,
     ControlledVocabulary,
+    CvType,
+    CvEntry,
+    CveValue,
+    CvEntryMl,
+    CvResource,
     JsonAnnotation,
     JsonEaf,
     JsonTier,

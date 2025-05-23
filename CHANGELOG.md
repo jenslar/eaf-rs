@@ -1,3 +1,7 @@
+# v0.6.3
+- NEW: Write controlled vocabulary ecv-files (`CvResource::write_ecv()`), that can be imported in ELAN.
+- Bumped crates.
+
 # v0.6.2
 - Bumped crates.
 

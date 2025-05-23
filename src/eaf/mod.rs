@@ -1,6 +1,6 @@
 //! The core data structure for a deserialized
 //! [ELAN-file](https://www.mpi.nl/tools/elan/EAF_Annotation_Format_3.0_and_ELAN.pdf).
-//! 
+//!
 //! Example:
 //! ```
 //! use eaf_rs::Eaf;
@@ -37,7 +37,7 @@ pub mod locale;
 pub mod controlled_vocabulary;
 pub mod json;
 pub mod validate;
-pub mod query;
+pub(crate) mod query;
 pub mod merge;
 
 pub use eaf::{Eaf, Scope};
@@ -55,9 +55,18 @@ pub use language::Language;
 pub use lexicon_ref::LexiconRef;
 pub use index::Index; // should perhaps not be public
 pub use locale::Locale;
-pub use controlled_vocabulary::ControlledVocabulary;
+pub use controlled_vocabulary::{
+    ControlledVocabulary,
+    CvResource,
+    CvType,
+    CvEntry,
+    CvEntryMl,
+    CveValue,
+    Description,
+};
 pub use json::{JsonAnnotation, JsonEaf, JsonTier};
 pub use query::QueryResult;
 pub use merge::OverlapStrategy;
 
 pub(crate) use validate::{overlap, ts_duplicates};
+pub(crate) use eaf::{xsi_no_name_space_schema_location, xmlns_xsi, today};
