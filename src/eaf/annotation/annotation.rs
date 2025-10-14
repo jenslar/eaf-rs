@@ -16,7 +16,7 @@ use regex::Regex;
 use serde::{Serialize, Deserialize};
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::{EafError, TimeSlot};
+use crate::{eaf::annotation::overlap::Overlap, EafError, TimeSlot};
 
 use super::{
     AnnotationType,
@@ -218,6 +218,14 @@ impl Annotation {
             .len()
     }
 
+    pub fn intersects(&self, other: &Annotation) -> bool {
+        Overlap::intersects(self, other)
+    }
+
+    pub fn overlap(&self, other: &Annotation) -> Option<Overlap> {
+        Overlap::resolve(self, other)
+    }
+
     /// Returns average token length.
     ///
     /// Restriction: Only applies to whitespace delimited scripts,
@@ -272,8 +280,8 @@ impl Annotation {
     }
 
     /// Returns the numerical component of the annotation ID.
-    /// May fail in cases where third-party software does not
-    /// follow ELAN's naming conventions.
+    /// May fail in cases where software that generates
+    /// ELAN-files does not follow ELAN's naming conventions.
     pub fn id_num(&self) -> Result<usize, EafError> {
         self.id().trim_start_matches(char::is_alphabetic)
             .parse()

@@ -1,19 +1,7 @@
 // use std::path::{Path, PathBuf};
 
 use crate::{
-    Constraint,
-    ControlledVocabulary,
-    Eaf,
-    EafError,
-    Header,
-    Index,
-    Language,
-    LexiconRef,
-    License,
-    LinguisticType,
-    Locale,
-    Tier,
-    TimeOrder,
+    eaf::ExternalRef, Constraint, ControlledVocabulary, Eaf, EafError, Header, Index, Language, LexiconRef, License, LinguisticType, Locale, Tier, TimeOrder
 };
 
 use super::{
@@ -41,6 +29,7 @@ pub struct EafBuilder {
     constraints: Vec<Constraint>, // corresponding constr required by lt
     controlled_vocabularies: Vec<ControlledVocabulary>,
     lexicon_refs: Vec<LexiconRef>,
+    external_refs: Vec<ExternalRef>,
 }
 
 impl EafBuilder {
@@ -173,10 +162,18 @@ impl EafBuilder {
         }
     }
 
-    /// Add lexicon refs.
+    /// Add lexicon references.
     pub fn lexicon_refs(self, lexicon_refs: Vec<LexiconRef>) -> Self {
         Self {
             lexicon_refs,
+            ..self
+        }
+    }
+
+    /// Add external references.
+    pub fn external_refs(self, external_refs: Vec<ExternalRef>) -> Self {
+        Self {
+            external_refs,
             ..self
         }
     }
@@ -236,6 +233,7 @@ impl EafBuilder {
             },
             controlled_vocabularies: self.controlled_vocabularies,
             lexicon_refs: self.lexicon_refs,
+            external_refs: self.external_refs,
             derived: false,
             index: Index::default(),
             indexed: false,

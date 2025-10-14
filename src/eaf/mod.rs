@@ -35,6 +35,7 @@ pub mod lexicon_ref;
 pub mod index;
 pub mod locale;
 pub mod controlled_vocabulary;
+pub mod external_ref;
 pub mod json;
 pub mod validate;
 pub(crate) mod query;
@@ -64,6 +65,7 @@ pub use controlled_vocabulary::{
     CveValue,
     Description,
 };
+pub use external_ref::{ExternalRef, ReferenceType};
 pub use json::{JsonAnnotation, JsonEaf, JsonTier};
 pub use query::QueryResult;
 pub use merge::OverlapStrategy;

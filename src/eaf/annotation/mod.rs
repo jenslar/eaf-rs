@@ -1,5 +1,5 @@
 //! Annotation.
-//! 
+//!
 //! Can be either an 'aligned annotation' (part of a main/top-level tier),
 //! or a 'referred annotation' (part of a referred tier).
 
@@ -8,6 +8,7 @@ mod alignable_annotation;
 mod ref_annotation;
 mod annotation_type;
 mod annotation_value;
+mod overlap;
 mod builder;
 
 pub use annotation::Annotation;

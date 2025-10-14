@@ -1,5 +1,9 @@
+# v0.6.4
+- FIX: Writing ecv-files (`CvResource::write_ecv()`) resulted in no content. This is now fixed.
+
 # v0.6.3
 - NEW: Write controlled vocabulary ecv-files (`CvResource::write_ecv()`), that can be imported in ELAN.
+- NEW: Added missing `EXTERNAL_REF` element used to reference e.g. external CV files (`.ecv`) etc.
 - Bumped crates.
 
 # v0.6.2

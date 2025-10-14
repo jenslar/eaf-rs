@@ -31,6 +31,7 @@ use std::fs::File;
 use std::io::Write;
 use std::path::{Component, Path, PathBuf};
 
+use crate::eaf::ExternalRef;
 use crate::support::affix_file_name;
 use crate::TimeSlot;
 use crate::EafError;
@@ -227,6 +228,8 @@ pub struct Eaf {
     #[serde(rename = "CONSTRAINT", default)]
     pub constraints: Vec<Constraint>,
 
+    // order of controlled_vocabulary, lexicon_ref, external_ref?
+
     /// EAF controlled vocabularies.
     #[serde(rename = "CONTROLLED_VOCABULARY", default)]
     pub controlled_vocabularies: Vec<ControlledVocabulary>,
@@ -234,6 +237,10 @@ pub struct Eaf {
     /// EAF lexicon references.
     #[serde(rename = "LEXICON_REF", default)]
     pub lexicon_refs: Vec<LexiconRef>,
+
+    /// EAF external references.
+    #[serde(rename = "EXTERNAL_REF", default)]
+    pub external_refs: Vec<ExternalRef>,
 
     /// Not part of EAF specification. Toggle to check whether annotations have
     /// e.g. derived time slot values set.
@@ -271,6 +278,7 @@ impl Default for Eaf {
             constraints: Vec::new(),
             controlled_vocabularies: Vec::new(),
             lexicon_refs: Vec::new(),
+            external_refs: Vec::new(),
             derived: false,
             index: Index::default(),
             indexed: false,
@@ -821,7 +829,8 @@ impl Eaf {
         &self,
         pattern: &str,
         ignore_case: bool
-    ) -> Vec<(usize, &str, &str, &str, Option<&str>)> {
+    // ) -> Vec<(usize, &str, &str, &str, Option<&str>)> {
+    ) -> Vec<(usize, &str, &Annotation)> {
         // (Annotation Index, Tier ID, Annotation ID, Annotation value)
         self.tiers.par_iter()
             .filter_map(|t| {
@@ -855,7 +864,8 @@ impl Eaf {
     pub fn query_rx(
         &self,
         regex: &Regex
-    ) -> Vec<(usize, &str, &str, &str, Option<&str>)> {
+    // ) -> Vec<(usize, &str, &str, &str, Option<&str>)> {
+    ) -> Vec<(usize, &str, &Annotation)> {
         // (Annotation Index, Tier ID, Annotation ID, Annotation value)
         self.tiers.par_iter()
             .filter_map(|t| {
@@ -1237,6 +1247,93 @@ impl Eaf {
 
         Ok(eaf)
     }
+    pub fn extract2(
+        &self,
+        start: i64,
+        end: i64,
+        media_paths: &[PathBuf]
+    ) -> Result<Self, EafError> {
+        let mut eaf = self.to_owned();
+
+        // 1. Filter time order.
+        //    Time slots without time values between min/max time slots
+        //    with a time value will be discarded.
+        //    The resulting time order may be empty.
+        let time_order = eaf.time_order.filter(start, end);
+        eaf.time_order = time_order.to_owned();
+
+        // 2. Make sure annotations have derived timestamps etc.
+        if !eaf.derived {
+            eaf.derive()?
+        }
+
+        // Owned `Index` to avoid borrow errors...
+        let index = eaf.index.to_owned();
+
+        // 3. Iterate over tiers and annotations...
+        for tier in eaf.tiers.iter_mut() {
+            let annots: Vec<Annotation> = tier
+                .iter()
+                .filter(|a| {
+                    // ...then retrieve time slot ID. Need to check if each annotation
+                    // is a ref annotation by trying to retrieve `main_annotation` reference...
+                    let ts_ids = match a.main() {
+                        // Ref annotation
+                        Some(id) => index.a2ts.get(id).to_owned(),
+                        // Alignable annotation
+                        None => index.a2ts.get(a.id()).to_owned(),
+                    };
+
+                    // Do the actual filtering based on whether filtered `ts_id` Vec
+                    // contains the time slot references/ID:s in question.
+                    // This means that only annotations fully contained within
+                    // the time span will be preserved.
+                    if let Some((ts_id1, ts_id2)) = ts_ids {
+                        time_order.contains_id(&ts_id1) && time_order.contains_id(&ts_id2)
+                    } else {
+                        false
+                    }
+                })
+                .cloned()
+                .collect();
+
+            tier.annotations = annots;
+        }
+
+        if !media_paths.is_empty() {
+            eaf.scrub_media(false)?;
+            for media in media_paths {
+                eaf.add_media(&media, None)?;
+            }
+        }
+
+        // // Generates new media files from time span and sets these as new media url:s.
+        // if process_media {
+        //     // println!("PROCESSING {:?}", media_dir);
+        //     eaf.header.timespan(start, end, true, ffmpeg_path)?
+        //     // for mdsc in eaf.header.media_descriptor.iter_mut() {
+        //     //     // mdsc.timespan(start, end, media_dir, ffmpeg_path)?;
+        //     //     mdsc.timespan(start, end, true, ffmpeg_path)?;
+        //     // }
+        // }
+
+        // if let Some(p) = self.path.as_deref() {
+        //     eaf.path = Some(affix_file_name(p, Some(&start.to_string()), Some(&end.to_string())))
+        // }
+
+        eaf.indexed = false;
+
+        // 4. remap/update identifiers so that:
+        //    - annotation ID:s start on "a1",
+        //      including remapping ref annotation ID:s.
+        //    - time slot ID:s start on "ts1",
+        //      including remapping time slot references.
+        //    - re-indexes eaf
+        eaf.remap(None, None)?;
+        eaf.shift(-start, false)?;
+
+        Ok(eaf)
+    }
 
     /// Attempts to add an annotation as last item in tier with specified tier ID,
     /// together with corresponding time slot in time order.
@@ -1355,11 +1452,21 @@ impl Eaf {
         last_annots.last().cloned()
     }
 
-    /// Returns references to all main tiers.
-    pub fn main_tiers(&self) -> Vec<&Tier> {
+    /// Returns an iterator over all tiers.
+    pub fn tiers(&self, main_tiers_only: bool) -> impl Iterator<Item = &Tier> {
+        self.tiers.iter()
+            .filter(move |t| match main_tiers_only {
+                true => t.parent_ref.is_none(),
+                false => true,
+            })
+    }
+
+    /// Returns an iterator over all main tiers.
+    // pub fn main_tiers(&self) -> Vec<&Tier> {
+    pub fn main_tiers(&self) -> impl Iterator<Item = &Tier> {
         self.tiers.iter()
             .filter(|t| t.parent_ref.is_none())
-            .collect()
+            // .collect()
     }
 
     /// Returns references to all main tiers.

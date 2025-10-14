@@ -156,14 +156,28 @@ impl ControlledVocabulary {
         self.entries.iter().flat_map(|e| e)
     }
 
+    /// Add entry.
+    /// Only allows the newer `CvEntryMl` (EAF v2.7+).
     pub fn add_entry(
         &mut self,
         entry: &CvEntryMl
     ) {
-        // self.entry.push(CvType::CvEntryMl(entry.to_owned()));
-        if let Some(entries) = &mut self.entries {
-            entries.push(CvType::CvEntryMl(entry.to_owned()));
-        }
+        self.entries.get_or_insert_default().push(CvType::CvEntryMl(entry.to_owned()));
+    }
+
+    /// Sort entries on description.
+    /// May be useful for larger vocabularies,
+    /// when viewed in ELAN.
+    pub fn sort(&mut self) {
+        // cv.entries.map(|e| e.sort_by_cached_key(|v| v.));
+        self.entries.as_mut().map(|e| e.sort_by_cached_key(|cv_type| match cv_type {
+            CvType::Description(description) => description.value.to_owned(),
+            CvType::CvEntry(cv_entry) => Some(cv_entry.value.to_owned()),
+            CvType::CvEntryMl(cv_entry_ml) => cv_entry_ml.cve_values
+                .first()
+                .map(|v| v.value.to_owned())
+                .to_owned()
+        }));
     }
 }
 
@@ -211,7 +225,7 @@ pub struct CvEntryMl {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ext_ref: Option<String>,
     #[serde(rename = "CVE_VALUE")]
-    pub cve_values: Vec<CveValue>, // is this really multiple value or only a single one?
+    pub cve_values: Vec<CveValue>, // is this really multiple values or only a single one? check eaf xsd
 }
 
 impl Default for CvEntryMl {
@@ -252,7 +266,7 @@ pub struct CveValue {
 }
 
 // EAF v2.8+
-#[derive(Debug, Clone, Default, Deserialize, Serialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Default, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(rename_all = "UPPERCASE")]
 pub struct Description {
     #[serde(rename="@LANG_REF")]
