@@ -3,19 +3,23 @@ use std::{path::Path, io::Write, fs::File};
 use quick_xml::se::Serializer;
 use serde::{Deserialize, Serialize};
 
-use crate::EafError;
+use crate::{EafError, pfsx::{Pref, PrefList, Value}};
 
 use super::pref_value::PrefValue;
 
 /// Default for top-level attribute `xmlns:xsi`.
-pub fn xmlns_xsi() -> String {
+fn xmlns_xsi() -> String {
     "http://www.w3.org/2001/XMLSchema-instance".to_owned()
 }
 
 /// Default for top-level attribute `xsi:noNamespaceSchemaLocation`.
 /// [ETFv1.1](http://www.mpi.nl/tools/elan/Prefs_v1.1.xsd).
-pub fn xsi_no_name_space_schema_location() -> String {
+fn xsi_no_name_space_schema_location() -> String {
     "http://www.mpi.nl/tools/elan/Prefs_v1.1.xsd".to_owned()
+}
+
+fn pref_timeseries_viewer_key(idx: usize) -> String {
+    format!("TimeSeriesViewer.Panel-{idx}")
 }
 
 /// Represents the ELAN preferences XML-file (`.pfsx`).
@@ -120,5 +124,27 @@ impl Pfsx {
                 false
             })
             .collect()
+    }
+
+    pub fn add_timeseries_viewer(
+        &mut self,
+        index: usize,
+        labels: &[String],
+    ) {
+        self.preferences.push(
+            PrefValue::PrefList(PrefList {
+                key: pref_timeseries_viewer_key(index),
+                preferences: labels.into_iter()
+                    .map(|l| Value::String(l.to_owned()))
+                    .collect()
+            })
+        )
+    }
+
+    pub fn add_timeseries_viewer_number_panels(&mut self, count: i32) {
+        self.preferences.push(PrefValue::Pref(Pref::new(
+            "TimeSeriesViewer.NumberOfPanels",
+            &Value::Int(count)
+        )))
     }
 }

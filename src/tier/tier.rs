@@ -314,7 +314,7 @@ impl Tier {
     /// Returns average annotation length,
     /// i.e. average number of tokens/words
     /// in each annotation.
-    pub fn avr_annot_len(&self) -> f64 {
+    pub fn average_annot_len(&self) -> f64 {
         let a_len: Vec<usize> = self.annotations.iter()
             .map(|a| a.len())
             .collect();
@@ -328,9 +328,9 @@ impl Tier {
     /// i.e. average number of characters
     /// in each token/word. Based on extended
     /// grapheme clusters.
-    pub fn avr_token_len(&self) -> f64 {
+    pub fn average_token_len(&self) -> f64 {
         let t_len: Vec<f64> = self.annotations.iter()
-            .map(|a| a.avr_len(true)) // average token length for annotation
+            .map(|a| a.average_len(true)) // average token length for annotation
             .collect();
         match t_len.len() {
             0 => 0.,
@@ -372,7 +372,7 @@ impl Tier {
     /// contain no time values.
     pub fn min(&self) -> Option<&Annotation> {
         self.iter()
-            .min_by_key(|a| a.ts_val()) // ts_val returns (Option<i64>, Option<i64>) which works with cmp
+            .min_by_key(|a| a.timeslot_value()) // timeslot_value returns (Option<i64>, Option<i64>) which works with cmp
     }
 
     /// Returns smallest millisecond annotation time span
@@ -381,7 +381,7 @@ impl Tier {
     /// contain no time values.
     pub fn min_span(&self) -> Option<(i64, i64)> {
         self.iter()
-            .filter_map(|a| if let (Some(s), Some(e)) = a.ts_val() {
+            .filter_map(|a| if let (Some(s), Some(e)) = a.timeslot_value() {
                 Some((s, e))
             } else {
                 None
@@ -414,7 +414,7 @@ impl Tier {
     /// contain no time values.
     pub fn max(&self) -> Option<&Annotation> {
         self.iter()
-            .max_by_key(|a| a.ts_val()) // ts_val returns (Option<i64>, Option<i64>) which works with cmp
+            .max_by_key(|a| a.timeslot_value()) // timeslot_value returns (Option<i64>, Option<i64>) which works with cmp
     }
 
     /// Returns smallest millisecond annotation time span
@@ -423,7 +423,7 @@ impl Tier {
     /// contain no time values.
     pub fn max_span(&self) -> Option<(i64, i64)> {
         self.iter()
-            .filter_map(|a| if let (Some(s), Some(e)) = a.ts_val() {
+            .filter_map(|a| if let (Some(s), Some(e)) = a.timeslot_value() {
                 Some((s, e))
             } else {
                 None
@@ -660,8 +660,8 @@ impl Tier {
         // Then sort by derived time values
         self.annotations
             .par_sort_by_cached_key(|a|
-                // a.ts_val().0.ok_or(EafError::MissingTimeslotVal(a.id())));
-                a.ts_val().0.expect("Fatal: Annotation has no time value set."));
+                a.timeslot_value().0.expect("Fatal: Annotation has no time value set.")
+            );
 
         Ok(())
     }
@@ -748,13 +748,13 @@ impl Tier {
         annotations.extend(tier.annotations.to_owned());
 
         // Ensure timestamps are set
-        if let Some(a) = annotations.iter().find(|a| !a.has_ta_val_set()) {
+        if let Some(a) = annotations.iter().find(|a| !a.timeslot_value_is_set()) {
             return Err(EafError::TimeslotValMissing(a.id().to_owned()))
         }
 
         // create vec and sort remaining annotations
         let mut sorted: Vec<Annotation> = annotations.into_iter().collect();
-        sorted.sort_by_key(|a| a.ts_val().0.unwrap());
+        sorted.sort_by_key(|a| a.timeslot_value().0.unwrap());
 
         self.annotations = sorted;
 
@@ -817,7 +817,7 @@ impl Tier {
     pub fn lookup_timeslots(&self) -> HashMap<String, Option<i64>> {
         let mut ts: HashMap<String, Option<i64>> = HashMap::new();
         self.iter().for_each(|a| {
-            if let (Some((ref1, ref2)), (val1, val2)) = (a.ts_ref(), a.ts_val()) {
+            if let (Some((ref1, ref2)), (val1, val2)) = (a.timeslot_ref(), a.timeslot_value()) {
                 ts.insert(ref1, val1);
                 ts.insert(ref2, val2);
             }
@@ -836,7 +836,7 @@ impl Tier {
         self.annotations
             .iter_mut()
             // Need to ignore annotations with no time slot refs.
-            .filter(|a| a.ts_ref().is_some())
+            .filter(|a| a.timeslot_ref().is_some())
             .enumerate()
             .flat_map(|(i, a)| a.ts(index + i*2))
             .collect()
@@ -855,8 +855,8 @@ impl Tier {
     pub fn derive_timeslots(&self) -> Option<Vec<TimeSlot>> {
         let mut ts: Vec<TimeSlot> = Vec::new();
         for a in self.annotations.iter() {
-            let (t_ref1, t_ref2) = a.ts_ref()?;
-            let (t1, t2) = a.ts_val();
+            let (t_ref1, t_ref2) = a.timeslot_ref()?;
+            let (t1, t2) = a.timeslot_value();
             let ts1 = TimeSlot::new(&t_ref1, t1);
             let ts2 = TimeSlot::new(&t_ref2, t2);
             ts.append(&mut vec![ts1, ts2])

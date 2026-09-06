@@ -38,6 +38,7 @@ pub enum Overlap {
 
 impl Overlap {
     pub fn resolve(source: &Annotation, target:&Annotation) -> Option<Self> {
+        // Redo this with TRange instead, e.g. (ts1 ..= ts2).contains(tx1) etc
         let (source_start, source_end) = source.ts_val();
         let (source_start, source_end) = (source_start?, source_end?);
         let (target_start, target_end) = target.ts_val();

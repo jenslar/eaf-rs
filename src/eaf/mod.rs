@@ -26,14 +26,11 @@ pub mod header;
 pub mod media_descriptor;
 pub mod linked_file_descriptor;
 pub mod property;
-pub mod timeorder;
-pub mod tier;
-pub mod annotation;
-pub mod linguistic_type;
 pub mod language;
 pub mod lexicon_ref;
 pub mod index;
 pub mod locale;
+pub mod mimetype;
 pub mod controlled_vocabulary;
 pub mod external_ref;
 pub mod json;
@@ -48,14 +45,11 @@ pub use header::Header;
 pub use media_descriptor::MediaDescriptor;
 pub use linked_file_descriptor::LinkedFileDescriptor;
 pub use property::Property;
-pub use timeorder::{TimeOrder, TimeSlot};
-pub use tier::Tier;
-pub use annotation::{Annotation, AlignableAnnotation, RefAnnotation};
-pub use linguistic_type::{LinguisticType, Constraint, StereoType};
 pub use language::Language;
 pub use lexicon_ref::LexiconRef;
 pub use index::Index; // should perhaps not be public
 pub use locale::Locale;
+pub use mimetype::MimeType;
 pub use controlled_vocabulary::{
     ControlledVocabulary,
     CvResource,

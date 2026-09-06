@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use super::Tier;
-use crate::{Annotation, eaf::{annotation::{RefAnnotation, AlignableAnnotation}, overlap}, EafError};
+use crate::{AlignableAnnotation, Annotation, EafError, RefAnnotation, overlap};
 
 #[derive(Debug)]
 pub struct TierMain;

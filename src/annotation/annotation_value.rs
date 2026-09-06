@@ -44,8 +44,12 @@ impl AnnotationValue {
     /// Returns an iterator over the characters for the annotation value.
     /// May produce different results that `AnnotationValue::graphemes()`
     /// depending on writing system.
-    pub fn chars(&self) -> Chars {
+    pub fn chars<'a>(&'a self) -> Chars<'a> {
         self.0.chars()
+    }
+
+    pub fn as_str(&self) -> &str {
+        self.0.as_str()
     }
 
     /// Returns character count for the annotation value.
@@ -56,11 +60,11 @@ impl AnnotationValue {
     /// Returns an iterator over the graphemes for the annotation value.
     /// May produce different results that `AnnotationValue::chars()`
     /// depending on writing system.
-    /// 
+    ///
     /// Uses extended grapheme clusters as adivised in
     /// [UAX#29](http://www.unicode.org/reports/tr29/#Grapheme_Cluster_Boundaries)
     /// (via <https://crates.io/crates/unicode-segmentation>)
-    pub fn graphemes(&self) -> Graphemes {
+    pub fn graphemes<'a>(&'a self) -> Graphemes<'a> {
         self.0.graphemes(true)
     }
 
@@ -73,7 +77,7 @@ impl AnnotationValue {
     pub fn len(&self) -> usize {
         self.split(None).len()
     }
-    
+
     /// Splits the annotation value on white space or specified pattern.
     pub fn split(&self, pattern: Option<&str>) -> Vec<&str> {
         match pattern {
@@ -95,7 +99,7 @@ impl AnnotationValue {
     pub fn query(&self, regex: &Regex) {
         if let Some(captures) = regex.captures(self.0.as_str()) {
             for capture in captures.iter() {
-    
+
             }
         };
     }

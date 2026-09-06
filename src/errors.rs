@@ -1,6 +1,6 @@
 //! Various errors that may arise when parsing, processing, and generating EAF-files.
 
-use std::fmt;
+use std::{fmt, path::PathBuf};
 
 use mp4iter::Mp4Error;
 
@@ -43,7 +43,11 @@ pub enum EafError {
     FileExtensionMissing(String),
     /// Error reading media path into URI (prefixed `file://`).
     /// `Url::from_file_path` returns `Result<Url, ()>`
-    UrlError(String),
+    UrlFromPathError(PathBuf),
+    UrlToPathError(String),
+    /// Error reading string into URI.
+    UrlFromStringError(String),
+    UrlParseError(url::ParseError),
     /// Missing EAF header
     HeaderMissing,
 
@@ -201,7 +205,10 @@ impl fmt::Display for EafError {
             EafError::AnnotationOverlap => write!(f, "Annotation timespans overlap in the same tier"),
             EafError::FileNameMissing(path) => write!(f, "No file name in path '{}'", path),
             EafError::FileExtensionMissing(path) => write!(f, "No file extion in path '{}'", path),
-            EafError::UrlError(path) => write!(f, "Failed to convert path to UNC for {}", path),
+            EafError::UrlFromPathError(path) => write!(f, "Failed to derive URL from path {}", path.display()),
+            EafError::UrlToPathError(value) => write!(f, "Failed to parse URL as path for {}", value),
+            EafError::UrlFromStringError(value) => write!(f, "Failed to parse URL from {}", value),
+            EafError::UrlParseError(err) => write!(f, "Failed to parse URL: {err}"),
             EafError::PathInvalid(path) => write!(f, "No such file '{}'", path),
             EafError::ValueTooSmall(num) => write!(f, "Value '{}' is too small in this context.", num),
             EafError::ValueTooLarge(num) => write!(f, "Value '{}' is too large in this context.", num),
@@ -269,5 +276,12 @@ impl From<std::num::ParseIntError> for EafError {
 impl From<std::num::ParseFloatError> for EafError {
     fn from(err: std::num::ParseFloatError) -> EafError {
         EafError::ParseFloatError(err)
+    }
+}
+
+/// Converts std::num::ParseFloatError to EafError
+impl From<url::ParseError> for EafError {
+    fn from(err:url::ParseError) -> EafError {
+        EafError::UrlParseError(err)
     }
 }

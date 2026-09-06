@@ -115,7 +115,7 @@ pub(crate) fn merge_tiers(tiers: &[Tier]) -> Result<Tier, EafError> {
         return Err(EafError::AnnotationOverlap);
     }
 
-    merged_tier.annotations.sort_by_key(|a| a.ts_val());
+    merged_tier.annotations.sort_by_key(|a| a.timeslot_value());
 
     Ok(merged_tier)
 }

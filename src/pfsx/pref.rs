@@ -10,6 +10,15 @@ pub struct Pref {
     value: Value
 }
 
+impl Pref {
+    pub fn new(key: &str, value: &Value) -> Pref {
+        Self {
+            key: key.to_owned(),
+            value: value.to_owned(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub enum Value {
     Boolean(bool),  // XSD type = "booleanType"

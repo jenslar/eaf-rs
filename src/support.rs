@@ -27,6 +27,6 @@ pub(crate) fn url_from_path(path: &Path) -> Result<Url, EafError> {
     if let Ok(u) = Url::from_file_path(path) {
         Ok(u)
     } else {
-        Err(EafError::UrlError(path.display().to_string()))
+        Err(EafError::UrlFromPathError(path.to_path_buf()))
     }
 }

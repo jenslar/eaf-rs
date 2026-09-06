@@ -34,7 +34,7 @@ pub struct Header {
     /// since ELAN opens EAF-file with no linked media.
     #[serde(default)]
     pub media_descriptor: Vec<MediaDescriptor>,
-    /// Linked files. Optional.
+    /// Linked secondary files (CSV timeseries etc). Optional.
     #[serde(default)]
     pub linked_file_descriptor: Vec<LinkedFileDescriptor>,
     /// Property. Optional.
@@ -118,7 +118,6 @@ impl Header {
     }
 
     /// Returns all absolute media paths.
-    // pub fn media_abs_paths(&self) -> Vec<String> {
     pub fn media_abs_paths(&self) -> Vec<PathBuf> {
         self.media_descriptor.iter()
             .filter_map(|m| m.abs_path())
@@ -126,9 +125,37 @@ impl Header {
     }
 
     /// Returns all relative media paths (optional value).
-    // pub fn media_rel_paths(&self) -> Vec<String> {
     pub fn media_rel_paths(&self) -> Vec<PathBuf> {
         self.media_descriptor.iter()
+            .filter_map(|m| m.rel_path())
+            .collect()
+    }
+
+    pub fn add_linked_file(&mut self, path: &Path) -> Result<(), EafError> {
+        self.linked_file_descriptor.push(
+            LinkedFileDescriptor::new(path)?
+        );
+        Ok(())
+    }
+
+    /// Returns all linked paths as tuples,
+    /// `(linked_file_url, relative_linked_file_url)`
+    pub fn linked_file_paths(&self) -> Vec<(PathBuf, Option<PathBuf>)> {
+        self.linked_file_descriptor.iter()
+            .filter_map(|m| Some((m.abs_path()?, m.rel_path())))
+            .collect()
+    }
+
+    /// Returns all absolute linked file paths.
+    pub fn linked_file_abs_paths(&self) -> Vec<PathBuf> {
+        self.linked_file_descriptor.iter()
+            .filter_map(|m| m.abs_path())
+            .collect()
+    }
+
+    /// Returns all relative media paths (optional value).
+    pub fn linked_file_rel_paths(&self) -> Vec<PathBuf> {
+        self.linked_file_descriptor.iter()
             .filter_map(|m| m.rel_path())
             .collect()
     }

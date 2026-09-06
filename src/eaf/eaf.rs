@@ -21,9 +21,10 @@
 //! annotation level to make them more independent.
 
 use quick_xml::se::Serializer;
-use rayon::iter::IntoParallelRefMutIterator;
 use serde::{Deserialize, Serialize};
-use rayon::prelude::{IntoParallelRefIterator, ParallelIterator, IndexedParallelIterator, IntoParallelIterator};
+use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
+// use rayon::iter::IntoParallelRefMutIterator;
+// use rayon::prelude::{IntoParallelRefIterator, ParallelIterator, IndexedParallelIterator, IntoParallelIterator};
 use regex::Regex;
 use time::format_description;
 use std::collections::HashMap;
@@ -33,12 +34,11 @@ use std::path::{Component, Path, PathBuf};
 
 use crate::eaf::ExternalRef;
 use crate::support::affix_file_name;
-use crate::TimeSlot;
+use crate::{Annotation, TimeSlot};
 use crate::EafError;
 
 use super::merge::{merge_eafs, OverlapStrategy};
-use super::{
-    Annotation,
+use crate::{
     Constraint,
     StereoType,
     ControlledVocabulary,
@@ -136,8 +136,9 @@ pub enum Scope {
 }
 
 /// Core data structure for an ELAN annotation format file (`.eaf`).
-/// De/Serializable. Make sure to validate output, since breaking changes
-/// were introduced in EAF v2.8. E.g. valid EAF v2.7 documents with
+/// Make sure to validate output against the correct schema,
+/// since breaking changes were introduced in EAF v2.8.
+/// E.g. valid EAF v2.7 documents with
 /// controlled vocabularies do not validate against EAF v2.8+
 /// schemas.
 ///
@@ -146,7 +147,7 @@ pub enum Scope {
 /// use eaf_rs::Eaf;
 /// fn main() -> std::io::Result<()> {
 ///     let path = std::path::Path::new("MYEAF.eaf");
-///     let eaf = Eaf::de(&path, true)?;
+///     let eaf = Eaf::read(&path, true)?;
 ///     println!("{:#?}", eaf);
 ///     Ok(())
 /// }
@@ -407,21 +408,21 @@ impl Eaf {
         }
     }
 
-    /// Read an ELAN-file from disk.
-    pub fn read(path: &Path) -> Result<Eaf, EafError> {
-        Self::de(path, true)
-    }
-
     /// Serialize to an XML-string (single line),
     /// and optionally specify indentation (multi-line).
     pub fn to_string(&self, indent: Option<usize>) -> Result<String, EafError> {
         self.se(indent)
     }
 
+    /// Read an ELAN-file from disk.
+    pub fn read(path: &Path) -> Result<Eaf, EafError> {
+        Self::de(path, true)
+    }
+
     /// Serialize and write file to disk.
     pub fn write(&self, path: &Path, indent: Option<usize>) -> Result<(), EafError> {
         let content = self.se(indent)?;
-        let mut outfile = File::create(&path)?;
+        let mut outfile = File::create_new(&path)?;
 
         outfile.write_all(content.as_bytes()).map_err(|e| EafError::IOError(e))
     }
@@ -527,19 +528,19 @@ impl Eaf {
                         annotation.set_main(&ma.id());
 
                         // ...then get annotation ID for main annotation.
-                        ma.ts_ref()
+                        ma.timeslot_ref()
                             .ok_or(EafError::TimeslotRefMissing(annotation.id().to_owned()))?
                     }
 
                     // Raise error if annotation in main tier returns no time slot references.
                     false => annotation
-                        .ts_ref()
+                        .timeslot_ref()
                         .ok_or(EafError::TimeslotRefMissing(annotation.id().to_owned()))?,
                 };
 
-                let val1 = eaf_copy.ts_val(&ref1);
-                let val2 = eaf_copy.ts_val(&ref2);
-                annotation.set_ts_val(val1, val2);
+                let val1 = eaf_copy.timeslot_value(&ref1);
+                let val2 = eaf_copy.timeslot_value(&ref2);
+                annotation.set_timeslot_value(val1, val2);
                 annotation.set_tier_id(&tier.tier_id);
             }
         }
@@ -602,7 +603,7 @@ impl Eaf {
                 a2t.insert(id.to_owned(), t.tier_id.to_owned());
 
                 // Annotation ID -> (time slot ref 1, time slot ref2)
-                if let Some((ref1, ref2)) = a.ts_ref() {
+                if let Some((ref1, ref2)) = a.timeslot_ref() {
                     a2ts.insert(id.to_owned(), (ref1, ref2));
                 }
 
@@ -629,19 +630,20 @@ impl Eaf {
     }
 
     /// Generates empty ELAN-file with specified media files linked.
-    pub fn with_media(media_paths: &[PathBuf]) -> Self {
+    pub fn with_media(media_paths: &[PathBuf]) -> Result<Self, EafError> {
         let mut eaf = Self::default();
         for path in media_paths.iter() {
-            eaf.add_media(path, None);
+            eaf.add_media(path, None)?;
         }
-        eaf
+        Ok(eaf)
     }
 
     /// Links specified media files.
-    pub fn with_media_mut(&mut self, media_paths: &[PathBuf]) {
+    pub fn with_media_mut(&mut self, media_paths: &[PathBuf]) -> Result<(), EafError> {
         for path in media_paths.iter() {
-            self.add_media(path, None);
+            let _ = self.add_media(path, None)?;
         }
+        Ok(())
     }
 
     /// Adds new media path to header as a new media descriptor.
@@ -682,6 +684,32 @@ impl Eaf {
     // pub fn media_rel_paths(&self) -> Vec<String> {
     pub fn media_rel_paths(&self) -> Vec<PathBuf> {
         self.header.media_rel_paths()
+    }
+
+    /// Adds new media path to header as a new media descriptor.
+    // pub fn add_media(&mut self, path: &Path, extracted_from: Option<&str>) {
+    pub fn add_linked_file(&mut self, path: &Path) -> Result<(), EafError> {
+        self.header.add_linked_file(path)
+    }
+
+    /// Returns all media paths as string tuples,
+    /// `(media_url, relative_media_url)`.
+    /// `media_url` is optional.
+    // pub fn media_paths(&self) -> Vec<(String, Option<String>)> {
+    pub fn linked_file_paths(&self) -> Vec<(PathBuf, Option<PathBuf>)> {
+        self.header.linked_file_paths()
+    }
+
+    /// Returns all linked absolute media paths as strings.
+    // pub fn linked_file_abs_paths(&self) -> Vec<String> {
+    pub fn linked_file_abs_paths(&self) -> Vec<PathBuf> {
+        self.header.linked_file_abs_paths()
+    }
+
+    /// Returns all linked relative media paths (optional value) as strings.
+    // pub fn linked_file_rel_paths(&self) -> Vec<String> {
+    pub fn linked_file_rel_paths(&self) -> Vec<PathBuf> {
+        self.header.linked_file_rel_paths()
     }
 
     /// Returns a hashmap (name: value) of all properties in header.
@@ -726,25 +754,25 @@ impl Eaf {
     /// Note that a time slot value is not required according to the EAF specification.
     ///
     /// Requires that `Eaf.index()` has been run.
-    pub fn ts_id(&self, ts_val: i64) -> Option<String> {
-        self.index.tv2ts.get(&ts_val).cloned()
+    pub fn timeslot_id(&self, timeslot_val: i64) -> Option<String> {
+        self.index.tv2ts.get(&timeslot_val).cloned()
     }
 
     /// Returns the time value if one is specified for the time slot id,
     /// `None` otherwise, or if there are no time slots.
     /// Note that a time slot value is not required according to the EAF specification.
-    pub fn ts_val(&self, ts_id: &str) -> Option<i64> {
+    pub fn timeslot_value(&self, timeslot_id: &str) -> Option<i64> {
         if self.indexed {
-            *self.index.ts2tv.get(ts_id)?
+            *self.index.ts2tv.get(timeslot_id)?
         } else {
-            self.time_order.find(ts_id)?.time_value
+            self.time_order.find(timeslot_id)?.time_value
         }
     }
 
     /// Returns the smallest time slot value.
     /// Does not provide media boundaries,
     /// only the first time slot with a time value.
-    pub fn ts_min_val(&self) -> Option<i64> {
+    pub fn timeslot_min_val(&self) -> Option<i64> {
         if self.indexed {
             self.index.tv2ts.keys().min().cloned() // use ts2id.keys() to ensure value
         } else {
@@ -755,7 +783,7 @@ impl Eaf {
     /// Returns the largest time slot value.
     /// Does not provide media boundaries,
     /// only the last time slot with a time value.
-    pub fn ts_max_val(&self) -> Option<i64> {
+    pub fn timeslot_max_val(&self) -> Option<i64> {
         // pub fn ts_max(&self) -> Option<u64> {
         if self.indexed {
             self.index.tv2ts.keys().max().cloned() // use ts2id.keys() to ensure value
@@ -964,7 +992,7 @@ impl Eaf {
     }
 
     /// Returns total number of annotations in EAF.
-    pub fn a_len(&self) -> usize {
+    pub fn annotation_len(&self) -> usize {
         self.tiers.iter()
             .map(|t| t.len())
             .sum()
@@ -973,9 +1001,9 @@ impl Eaf {
     /// Average annotation length,
     /// i.e. average number of tokens (`char`s)
     /// in each annotation.
-    pub fn a_avr_len(&self) -> f64 {
+    pub fn annotation_average_len(&self) -> f64 {
         let avr: Vec<f64> = self.tiers.iter()
-            .map(|t| t.avr_annot_len())
+            .map(|t| t.average_annot_len())
             .collect();
         match avr.len() {
             0 => 0.,
@@ -984,15 +1012,15 @@ impl Eaf {
     }
 
     /// Returns number of tiers in EAF.
-    pub fn t_len(&self) -> usize {
+    pub fn tier_len(&self) -> usize {
         self.tiers.len()
     }
 
     /// Average tier length,
     /// i.e. average number of annotations
     /// in each tier.
-    pub fn t_avr_len(&self) -> f64 {
-        let t_len = self.t_len();
+    pub fn tier_average_len(&self) -> f64 {
+        let t_len = self.tier_len();
         match t_len {
             0 => 0.,
             _ => self.tiers.iter().map(|t| t.len()).sum::<usize>() as f64 / t_len as f64
@@ -1000,16 +1028,16 @@ impl Eaf {
     }
 
     /// Total number of words/tokens.
-    pub fn tkn_len(&self) -> usize {
+    pub fn token_len(&self) -> usize {
         self.tiers.par_iter()
             .map(|t| t.annotations.iter().map(|a| a.len()).sum::<usize>())
             .sum::<usize>()
     }
 
     /// Average word/token length.
-    pub fn tkn_avr_len(&self) -> f64 {
+    pub fn token_average_len(&self) -> f64 {
         let avr: Vec<f64> = self.tiers.par_iter()
-            .map(|t| t.avr_token_len())
+            .map(|t| t.average_token_len())
             .collect();
         match avr.len() {
             0 => 0.,
@@ -1131,7 +1159,7 @@ impl Eaf {
                         .ok_or(EafError::TimeslotIdInvalid(ts1.to_owned()))?;
                     let new_ts2 = ts_map.get(ts2)
                         .ok_or(EafError::TimeslotIdInvalid(ts2.to_owned()))?;
-                    annotation.set_ts_ref(new_ts1, new_ts2);
+                    annotation.set_timeslot_ref(new_ts1, new_ts2);
                 }
 
                 // If it exists, look up and set reference annotation ID. Required for referred annotations.
@@ -1365,9 +1393,9 @@ impl Eaf {
             }
         } else {
             // Add time slots if alignable annotation.
-            let (ts_id1, ts_id2) = annotation.ts_ref()
+            let (ts_id1, ts_id2) = annotation.timeslot_ref()
                 .ok_or(EafError::TimeslotRefMissing(annotation.id().to_owned()))?;
-            let (ts_val1, ts_val2) = annotation.ts_val();
+            let (ts_val1, ts_val2) = annotation.timeslot_value();
 
             // Add time slots to time order. Only adds if it does not exist.
             self.add_timeslot(&ts_id1, ts_val1, false)?;
@@ -1432,7 +1460,7 @@ impl Eaf {
             .collect::<Vec<_>>();
         // If time slot values are not set, use max int value
         // to ensure it's not first. (creates issues if none are set...)
-        first_annots.sort_by_key(|a| a.ts_val().0.unwrap_or(i64::MAX));
+        first_annots.sort_by_key(|a| a.timeslot_value().0.unwrap_or(i64::MAX));
 
         first_annots.first().cloned()
     }
@@ -1447,7 +1475,7 @@ impl Eaf {
             .collect::<Vec<_>>();
         // If time slot values are not set, use max int value
         // to ensure it's not first. (creates issues if none are set...)
-        last_annots.sort_by_key(|a| a.ts_val().0.unwrap_or(i64::MAX));
+        last_annots.sort_by_key(|a| a.timeslot_value().0.unwrap_or(i64::MAX));
 
         last_annots.last().cloned()
     }
@@ -1659,6 +1687,13 @@ impl Eaf {
                 .map(|t| t.tier_id.to_owned())
                 .collect()
         }
+    }
+
+    /// Returns a list of tuples with tier IDs and number of annoations in that tier.
+    pub fn tier_id_len(&self) -> Vec<(String, usize)> {
+        self.tiers.iter()
+            .map(|t| (t.tier_id.to_owned(), t.len()))
+            .collect()
     }
 
     pub fn main_tier_ids(&self) -> Vec<String> {

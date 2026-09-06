@@ -1,5 +1,5 @@
 //! Time order.
-//! 
+//!
 //! Map of time slot ID to time values (milliseconds).
 
 use std::collections::HashMap;
@@ -27,7 +27,7 @@ impl TimeOrder {
 
     // /// Pushes a time slot at the end of time slot list,
     // /// unless the ID already exists.
-    // /// 
+    // ///
     // /// Timeslots may have the same time value.
     // pub fn add_old(&mut self, id: &str, val: Option<i64>) -> Result<(), EafError> {
     //     // if !self.id_exists(&id) {
@@ -71,7 +71,7 @@ impl TimeOrder {
     }
 
     /// Add a single time slot to time order.
-    /// 
+    ///
     /// Does not check whether the time slot
     /// already exists. Use `TimeSlot::add()` to
     /// generate and add a new, unique time slot.
@@ -80,7 +80,7 @@ impl TimeOrder {
     }
 
     /// Extends existing time order with time slots.
-    /// 
+    ///
     /// Does not check whether the time slots
     /// already exist. Use `TimeSlot::add_multi()` to
     /// generate and add a new, unique time slots.
@@ -101,7 +101,7 @@ impl TimeOrder {
         TimeOrder {
             time_slots: time_values.iter()
                 .enumerate()
-                .map(|(i,t)| 
+                .map(|(i,t)|
                     TimeSlot::new(&format!("ts{}", start+i+1), t.to_owned())
                 )
                 .collect()
@@ -157,7 +157,7 @@ impl TimeOrder {
     pub fn first_mut(&mut self) -> Option<&mut TimeSlot> {
         self.time_slots.first_mut()
     }
-    
+
     pub fn last(&self) -> Option<&TimeSlot> {
         self.time_slots.last()
     }
@@ -251,11 +251,11 @@ impl TimeOrder {
 
     /// Generate new numerical component of a time slot ID
     /// that follows "ts<NUMBER>", e.g. "ts231".
-    /// 
+    ///
     /// Note that other patterns will be ignored,
     /// but that this will not impact the uniquness
     /// of the ID, which is all that matters.
-    /// 
+    ///
     /// Increments on current max value.
     pub fn gen_id_idx(&self) -> i64 {
         if let Some(val) = self.max_id_num() {
@@ -267,11 +267,11 @@ impl TimeOrder {
 
     /// Generate multiple new numerical components of a time slot ID
     /// that follows "ts<NUMBER>", e.g. "ts231".
-    /// 
+    ///
     /// Note that other patterns will be ignored,
     /// but that this will not impact the uniquness
     /// of the ID, which is all that matters.
-    /// 
+    ///
     /// Increments on current max value.
     pub fn gen_id_idx_multi(&self, len: usize) -> Vec<i64> {
         if let Some(val) = self.max_id_num() {
@@ -282,14 +282,14 @@ impl TimeOrder {
     }
 
     /// Generate new time slot ID.
-    /// 
+    ///
     /// Increments on current "max" ID.
     pub fn gen_id(&self) -> String {
         return format!("ts{}", self.gen_id_idx())
     }
 
     /// Generate multiple new time slot IDs.
-    /// 
+    ///
     /// Increments on current "max" ID.
     pub fn gen_id_multi(&self, len: usize) -> Vec<String> {
         self.gen_id_idx_multi(len)
@@ -304,7 +304,7 @@ impl TimeOrder {
         let mut old2new: HashMap<String, String> = HashMap::new();
 
         let ts_start_index = start_index.unwrap_or(0);
-        
+
         self.time_slots.iter_mut()
             .enumerate()
             .for_each(|(i,t)| {
@@ -312,7 +312,7 @@ impl TimeOrder {
                 old2new.insert(t.time_slot_id.to_owned(), ts_id_new.to_owned());
                 t.time_slot_id = ts_id_new;
             });
-            
+
         old2new
     }
 
@@ -325,7 +325,7 @@ impl TimeOrder {
             .map(|ts| (ts.time_slot_id, ts.time_value))
             .collect()
     }
-    
+
     /// Reverse lookup table for time slots.
     /// Important: Only includes time slots with a corresponding time value.
     /// - Key: timeslot value in milliseconds.
@@ -373,7 +373,7 @@ impl TimeOrder {
     // /// millisecond values `start` and `end`. Start and end values may for example
     // /// correspond to new media boundaries when a clip has been extracted from a larger
     // /// media file.
-    // /// 
+    // ///
     // /// Note that only time slots with a millisecond value can act as the first or
     // /// final time slot for the specified time span. Between the first and the final
     // /// time slot all time slots will be included, including those without a time value.
@@ -390,7 +390,7 @@ impl TimeOrder {
     //     // Need to get around time slot values being optional,
     //     // hence the back and forth below. A simple time value
     //     // comparison would discard time slots with no time value.
-            
+
     //     // Get time slot ID for min/max time slot values.
     //     let id_min = filtered.keys().min()
     //         .and_then(|min| filtered.get(min))?;
@@ -409,7 +409,7 @@ impl TimeOrder {
     //         .position(|t| &t.time_slot_id == id_max)?;
 
     //     println!("TS LEN BEFORE: {}", self.time_slots.len());
-        
+
     //     let time_slots = self.time_slots[idx1 ..= idx2].iter()
     //         .map(|t|
     //             if let Some(val) = t.time_value {
@@ -422,15 +422,15 @@ impl TimeOrder {
     //             }
     //         )
     //         .collect::<Vec<TimeSlot>>();
-        
+
     //     println!("TS LEN AFTER: {}", time_slots.len());
-        
+
     //     Some(Self{time_slots})
     // }
 
     /// Returns a new time order containing only time slots between, and including,
     /// millisecond values `start` and `end`.
-    /// 
+    ///
     /// Note that time slots without a millisecond value will be discarded,
     /// since there is no reliable way to determine whether these exist
     /// within the specified timespan.
@@ -474,8 +474,8 @@ impl TimeOrder {
         Ok(Self {
             time_slots: annotations.par_iter()
                 .map(|a| {
-                    if let Some((tr1, tr2)) = a.ts_ref() {
-                        let (tv1, tv2) = a.ts_val();
+                    if let Some((tr1, tr2)) = a.timeslot_ref() {
+                        let (tv1, tv2) = a.timeslot_value();
                         Ok([TimeSlot::new(&tr1, tv1), TimeSlot::new(&tr2, tv2)])
                     } else {
                         Err(EafError::TimeslotRefsMissing)

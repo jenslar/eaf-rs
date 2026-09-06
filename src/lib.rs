@@ -31,29 +31,30 @@
 //! ```
 
 pub mod eaf;
+pub mod annotation;
+pub mod tier;
+pub mod linguistic_type;
+pub mod timeorder;
 pub mod pfsx;
-pub mod ffmpeg;
+pub mod media;
 pub mod lexicon;
 pub mod timeseries;
 pub mod support;
 pub mod errors;
 
+mod tests;
+
 pub use eaf::{
     Eaf,
+    EafBuilder,
     Scope,
     License,
     Header,
     MediaDescriptor,
     Property,
-    TimeOrder,
-    TimeSlot,
-    Tier,
-    Annotation,
-    LinguisticType,
-    Constraint,
-    StereoType,
     Language,
     LexiconRef,
+    LinkedFileDescriptor,
     Index,
     Locale,
     ControlledVocabulary,
@@ -65,8 +66,46 @@ pub use eaf::{
     JsonAnnotation,
     JsonEaf,
     JsonTier,
-    OverlapStrategy
+    MimeType,
+    OverlapStrategy,
+};
+pub(crate) use eaf::overlap;
+pub use annotation::{
+    Annotation,
+    AlignableAnnotation,
+    RefAnnotation,
+    AnnotationType,
+    AnnotationValue,
+    AnnotationBuilder,
+    AnnotationAlignable,
+    AnnotationReferred,
+    // Overlap,
+};
+pub use tier::{
+    Tier,
+    TierBuilder,
+};
+pub use linguistic_type::{
+    Constraint,
+    LinguisticType,
+    StereoType,
+};
+pub use timeorder::{
+    TimeOrder,
+    TimeSlot,
+    TimeOrderBuilder,
 };
 pub use pfsx::Pfsx;
-pub use timeseries::TimeSeries;
+pub use timeseries::{
+    TimeSeriesConfig,
+    TrackSource,
+    Track,
+    SamplePosition,
+    Position,
+    Units,
+    Description,
+    TrackProperty,
+    Range,
+    Color,
+};
 pub use errors::EafError;

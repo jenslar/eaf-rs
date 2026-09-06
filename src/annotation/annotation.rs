@@ -11,12 +11,13 @@
 //! require language specific parsers or models I will add this, but as of now it is not
 //! a simple problem to wolve).
 
-use std::{collections::HashMap, fmt::Display};
+use std::{collections::HashMap, fmt::Display, ops::Range};
 use regex::Regex;
 use serde::{Serialize, Deserialize};
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::{eaf::annotation::overlap::Overlap, EafError, TimeSlot};
+// use crate::{EafError, Overlap, TimeSlot};
+use crate::{EafError, TimeSlot};
 
 use super::{
     AnnotationType,
@@ -219,12 +220,25 @@ impl Annotation {
     }
 
     pub fn intersects(&self, other: &Annotation) -> bool {
-        Overlap::intersects(self, other)
+        if let ((Some(self_start), Some(self_end)), (Some(other_start), Some(other_end))) = (self.timeslot_value(), other.timeslot_value()) {
+            let range_self = self_start..=self_end;
+            let range_other = other_start..=other_end;
+
+            return range_self.start() <= range_other.end() && range_other.start() <= range_self.end()
+        }
+        false
     }
 
-    pub fn overlap(&self, other: &Annotation) -> Option<Overlap> {
-        Overlap::resolve(self, other)
+    pub fn contains_timestamp(&self, timestamp_milliseconds: i64) -> bool {
+        if let (Some(ts1), Some(ts2)) = self.timeslot_value() {
+            return (ts1 ..= ts2).contains(&timestamp_milliseconds) // timestamp is contained
+        }
+        false
     }
+
+    // pub fn overlap(&self, other: &Annotation) -> Option<Overlap> {
+    //     Overlap::resolve(self, other)
+    // }
 
     /// Returns average token length.
     ///
@@ -235,7 +249,7 @@ impl Annotation {
     /// `graphemes = true` uses <https://crates.io/crates/unicode-segmentation>
     /// to determine grapheme clusters (currently set to find extended grapheme clusters)
     /// as opposed to Rust's built-in `char` type.
-    pub fn avr_len(&self, graphemes: bool) -> f64 {
+    pub fn average_len(&self, graphemes: bool) -> f64 {
         let tkn_len: Vec<usize> = self.to_str()
             .split_ascii_whitespace()
             .map(|s| if graphemes {
@@ -349,10 +363,10 @@ impl Annotation {
     /// and sets generated time slot references.
     /// Time values must have been be derived and set.
     pub(crate) fn ts(&mut self, index: usize) -> [TimeSlot; 2] {
-        let (t1, t2) = self.ts_val();
+        let (t1, t2) = self.timeslot_value();
         let (r1, r2) = (format!("ts{}", index), format!("ts{}", index+1));
 
-        self.set_ts_ref(&r1, &r2);
+        self.set_timeslot_ref(&r1, &r2);
 
         [
             TimeSlot::new(&r1, t1),
@@ -363,7 +377,7 @@ impl Annotation {
     /// Returns time slot references for an alignable annotation,
     /// and `None` for a referred annotation.
     /// I.e. the attributes `TS_REF1` and `TS_REF2` if annotation is an alignable annotation.
-    pub fn ts_ref(&self) -> Option<(String, String)> {
+    pub fn timeslot_ref(&self) -> Option<(String, String)> {
         match &self.annotation_type {
             AnnotationType::AlignableAnnotation(a) => {
                 Some((a.time_slot_ref1.to_owned(), a.time_slot_ref2.to_owned()))
@@ -374,7 +388,7 @@ impl Annotation {
 
     /// Sets (new) time slot references for an alignable annotation.
     /// I.e. the attributes `TS_REF1` and `TS_REF2` if annotation is an alignable annotation.
-    pub fn set_ts_ref(&mut self, time_slot_ref1: &str, time_slot_ref2: &str) {
+    pub fn set_timeslot_ref(&mut self, time_slot_ref1: &str, time_slot_ref2: &str) {
         match &mut self.annotation_type {
             AnnotationType::AlignableAnnotation(a) => {
                 a.time_slot_ref1 = time_slot_ref1.to_owned();
@@ -469,7 +483,7 @@ impl Annotation {
     ///
     /// Note that the field that is checked is not part of the EAF specification,
     /// and is populated when calling e.g. `Eaf::derive()`.
-    pub fn ts_val(&self) -> (Option<i64>, Option<i64>) {
+    pub fn timeslot_value(&self) -> (Option<i64>, Option<i64>) {
         match &self.annotation_type {
             AnnotationType::AlignableAnnotation(a) => {
                 (a.time_value1, a.time_value2)
@@ -485,7 +499,7 @@ impl Annotation {
     /// Note that these fields are not part of the EAF specification
     /// and are ignored when de/serializing, but creates a more independent
     /// `Annotation` whenever it is used outside the `Eaf` context.
-    pub fn set_ts_val(&mut self, time_value1: Option<i64>, time_value2: Option<i64>) {
+    pub fn set_timeslot_value(&mut self, time_value1: Option<i64>, time_value2: Option<i64>) {
         match &mut self.annotation_type {
             AnnotationType::AlignableAnnotation(a) => {
                 a.time_value1 = time_value1;
@@ -503,7 +517,7 @@ impl Annotation {
     /// Note that these fields are not part of the EAF specification
     /// and are ignored when de/serializing, but creates a more independent
     /// `Annotation` whenever it is used outside the `Eaf` context.
-    pub fn with_ts_val(self, time_value1: i64, time_value2: i64) -> Self {
+    pub fn with_timeslot_value(self, time_value1: i64, time_value2: i64) -> Self {
         Self {
             annotation_type: {
                 match self.annotation_type {
@@ -521,8 +535,8 @@ impl Annotation {
 
     /// Returns `true` if start and end
     /// timestamps are both set.
-    pub fn has_ta_val_set(&self) -> bool {
-        let (ts1, ts2) = self.ts_val();
+    pub fn timeslot_value_is_set(&self) -> bool {
+        let (ts1, ts2) = self.timeslot_value();
         if ts1.is_some() && ts2.is_some() {
             return true
         }
@@ -611,7 +625,7 @@ impl Annotation {
     pub fn is_identical(&self, annotation: &Self, compare_time: bool) -> bool {
         match compare_time {
             // Both annotation value and time stamps must match
-            true => self.ts_val() == annotation.ts_val() && self.value() == annotation.value(),
+            true => self.timeslot_value() == annotation.timeslot_value() && self.value() == annotation.value(),
             // Only annotation value must match
             false => self.value() == annotation.value()
         }
@@ -620,8 +634,8 @@ impl Annotation {
     /// Returns `true` if annotation timepans overlap
     /// (assuming these are set).
     pub(crate) fn overlaps(&self, annotation: &Self) -> bool {
-        if let (Some(t_self1), Some(t_self2)) = self.ts_val() {
-            if let (Some(t_other1), Some(t_other2)) = annotation.ts_val() {
+        if let (Some(t_self1), Some(t_self2)) = self.timeslot_value() {
+            if let (Some(t_other1), Some(t_other2)) = annotation.timeslot_value() {
                 let range = t_self1 .. t_self2;
                 println!("{range:?} t other 1: {t_other1} t other 2: {t_other2}");
                 if range.contains(&t_other1) || range.contains(&t_other2) {

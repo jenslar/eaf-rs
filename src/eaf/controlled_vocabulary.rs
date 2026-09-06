@@ -26,7 +26,7 @@ pub struct CvResource {
     #[serde(rename="@DATE", default = "today")]
     pub date: String,
 
-    /// Controlled Vocabulary date
+    /// Controlled Vocabulary version
     #[serde(rename="@VERSION")]
     pub version: String,
 
@@ -47,9 +47,11 @@ pub struct CvResource {
 impl Default for CvResource {
     fn default() -> Self {
         Self {
-            author: "CRMarhaceo-writer".to_string(),
+            // author: "CRMarhaceo-writer".to_string(),
+            author: Default::default(),
             date: today(),
-            version: "0.2".to_string(),
+            // version: "0.2".to_string(),
+            version: Default::default(), // may have to be a valid version number
             xmlns_xsi: xmlns_xsi(),
             xsi_nonamespaceschemalocation: xsi_no_name_space_schema_location(),
             language: None,

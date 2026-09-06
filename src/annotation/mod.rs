@@ -8,7 +8,7 @@ mod alignable_annotation;
 mod ref_annotation;
 mod annotation_type;
 mod annotation_value;
-mod overlap;
+// mod overlap;
 mod builder;
 
 pub use annotation::Annotation;
@@ -17,3 +17,4 @@ pub use ref_annotation::RefAnnotation;
 pub use annotation_type::AnnotationType;
 pub use annotation_value::AnnotationValue;
 pub use builder::{AnnotationBuilder, AnnotationAlignable, AnnotationReferred};
+// pub use overlap::Overlap;

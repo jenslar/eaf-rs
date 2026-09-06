@@ -76,7 +76,7 @@ impl From<&Eaf> for JsonEaf {
             // currently filtering out annotations with no explicit timestamps set
             // also tokenized tiers currently won't work
             json_tier.annotations = eaf_tier.annotations.iter()
-                .filter_map(|a| if let (Some(ts1), Some(ts2)) = a.ts_val() {
+                .filter_map(|a| if let (Some(ts1), Some(ts2)) = a.timeslot_value() {
                     Some(JsonAnnotation {
                         id: a.id().to_owned(),
                         ref_id: a.ref_id().map(|s| s.to_owned()),

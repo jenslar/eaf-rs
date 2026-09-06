@@ -1,3 +1,8 @@
+# v0.7.0
+- NEW: Methods for checking whether annotation timespan encloses (`Annotation::encloses_timestamp()`) or intersects (`Annotation::intersects_timestamp()`) with a timestamp.
+- NEW: Added methods for timeseries viewer and timeseries configuration file (`..._tsconf.xml`)
+- BREAKING: Changed to less confusing names for many methods, especially timeslots (e.g. `Annotation::ts_val` is now `Annotation::timeslot_value`).
+
 # v0.6.4
 - FIX: Writing ecv-files (`CvResource::write_ecv()`) resulted in no content. This is now fixed.
 

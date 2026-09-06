@@ -4,8 +4,9 @@
 //! Requires `ffmpeg` (<https://ffmpeg.org>). Either in `PATH` or specified
 //! custom path.
 
-#[deprecated]
-pub mod ffmpeg;
+// #[deprecated]
+// pub mod ffmpeg;
 
-#[deprecated]
-pub use ffmpeg::FFmpeg;
+mod media;
+
+pub use media::Media;

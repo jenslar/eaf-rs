@@ -2,29 +2,48 @@ use std::{path::{Path, PathBuf}, process::Command};
 
 use crate::errors::EafError;
 
-pub struct FFmpeg {}
+pub struct Media {
+    ffmpeg: PathBuf,
+}
 
-impl FFmpeg {
+// pub struct FFmpeg {}
+
+// impl FFmpeg {
+impl Media {
+    pub fn new(ffmpeg: Option<&Path>) -> Self {
+        Self {
+            ffmpeg: match ffmpeg {
+                Some(p) => p.to_path_buf(),
+                None => if cfg!(windows) {
+                    PathBuf::from("ffmpeg.exe")
+                } else {
+                    PathBuf::from("ffmpeg")
+                },
+            },
+        }
+    }
+
     /// Extract section of a media file with `start_ms` and `end_ms` timespan
     /// in milliseconds (ELAN's default time value).
     /// If succesful the path to the extracted media file is returned.
-    /// 
+    ///
     /// TODO verify that media_path exists, return err if not
     pub fn extract_timespan(
+        &self,
         media_path: &Path,
         start_ms: u64,
         end_ms: u64,
         custom_outpath: Option<&Path>,
-        ffmpeg_path: Option<&Path>
+        // ffmpeg_path: Option<&Path>
     ) -> Result<PathBuf, EafError> {
-        let ffmpeg = if let Some(p) = ffmpeg_path {
-            p.to_owned()
-        } else if cfg!(windows) {
-            PathBuf::from("ffmpeg.exe")
-        } else {
-            PathBuf::from("ffmpeg")
-        };
-    
+        // let ffmpeg = if let Some(p) = ffmpeg_path {
+        //     p.to_owned()
+        // } else if cfg!(windows) {
+        //     PathBuf::from("ffmpeg.exe")
+        // } else {
+        //     PathBuf::from("ffmpeg")
+        // };
+
         let outpath = match custom_outpath {
             Some(p) => p.to_owned(),
             None => {// e.g. path/to/infile.mp4 -> path/to/infile_1000-14000.mp4
@@ -42,12 +61,12 @@ impl FFmpeg {
                 ))
             }
         };
-    
-        Command::new(&ffmpeg)
+
+        Command::new(&self.ffmpeg)
             .args(&[
-                "-loglevel", "fatal",
-                "-guess_layout_max", "0", // ffmpeg will not guess channel layout
-                "-bitexact", // ffmpeg will not include LIST metadata
+                // "-loglevel", "fatal",
+                // "-guess_layout_max", "0", // ffmpeg will not guess channel layout
+                // "-bitexact", // ffmpeg will not include LIST metadata
                 "-i", &media_path.display().to_string(),
                 "-ss", &format!("{}", start_ms as f64/1000.0), // start point in ms
                 "-t", &format!("{}", (end_ms - start_ms) as f64/1000.0), // duration from start point in ms
@@ -55,10 +74,10 @@ impl FFmpeg {
                 &outpath.display().to_string()
             ])
             .output()?;
-        
+
         Ok(outpath)
     }
-    
+
     /// Extract a WAV-file from specified video file to the same dir as the video.
     /// Returns the path to extracted WAV-file.
     pub fn extract_wav(video_path: &Path, ffmpeg_path: Option<&Path>) -> Result<PathBuf, EafError> {
@@ -69,9 +88,9 @@ impl FFmpeg {
         } else {
             PathBuf::from("ffmpeg")
         };
-        
+
         let wav_path = video_path.with_extension("wav");
-    
+
         Command::new(&ffmpeg)
             .args(&[
                 "-i", &video_path.display().to_string(),
@@ -79,7 +98,7 @@ impl FFmpeg {
                 &wav_path.display().to_string()
             ])
             .output()?;
-    
+
         Ok(wav_path)
     }
 
