@@ -42,8 +42,6 @@ pub mod timeseries;
 pub mod support;
 pub mod errors;
 
-mod tests;
-
 pub use eaf::{
     Eaf,
     EafBuilder,
